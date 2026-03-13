@@ -1,0 +1,7 @@
+bounded_context: "contracts"
+service_id: "svc-ctr-asyncapi-catalog"
+application_id: "app.ctr.asyncapi-catalog"
+data_owner_pattern: "db_ctr_asyncapi_catalog_prod"
+event_namespace: "evt.ctr.asyncapi"
+owning_squad: "API Governance Guild"
+wave: "4"

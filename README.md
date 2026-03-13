@@ -1,2 +1,11 @@
-# contracts-asyncapi-catalog
-DDD/EDA contracts capability (svc-ctr-asyncapi-catalog) owner:API Governance Guild wave:4
+# fintechbankx-contracts-asyncapi-catalog
+
+## Ownership Metadata
+
+- Bounded context: contracts
+- Service ID: svc-ctr-asyncapi-catalog
+- Application ID: app.ctr.asyncapi-catalog
+- Data owner pattern: db_ctr_asyncapi_catalog_prod
+- Event namespace: evt.ctr.asyncapi
+- Owning squad: API Governance Guild
+- Wave: 4
