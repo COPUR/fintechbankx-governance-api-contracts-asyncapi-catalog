@@ -51,6 +51,7 @@ Bu repository, FinTechBankX DDD/EDA dönüşümünde **svc-ctr-asyncapi-catalog*
 - [Transformation Plan](https://github.com/COPUR/fintechbankx-governance-architecture-enablement-enterprise-architecture/blob/main/docs/enterprisearchitecture/implementation-development/MICROSERVICES_TRANSFORMATION_PLAN.md)
 - [Capability Map (PUML)](https://github.com/COPUR/fintechbankx-governance-architecture-enablement-enterprise-architecture/blob/main/docs/puml/service-mesh/enterprise-capability-map.puml)
 - [Bu Repo Dokümantasyonu](./docs)
+- [AsyncAPI Event Contracts](./asyncapi/README.md)
 
 ## Güvenlik ve Uyumluluk Notları
 - Gerçek secret değerleri repo veya `.env` içinde tutulmaz.

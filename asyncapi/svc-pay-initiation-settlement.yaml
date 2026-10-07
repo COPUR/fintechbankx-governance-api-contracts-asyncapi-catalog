@@ -1,0 +1,751 @@
+# AsyncAPI contract for svc-pay-initiation-settlement.
+# Status: Proposed. The provider repository owns this contract; this catalog mirrors it.
+# Naming: docs/NAMING_CONVENTION_DDD_EDA_BUSINESS_CONTEXT.md
+# Validate: npx -y @asyncapi/cli@2.13.0 validate asyncapi/svc-pay-initiation-settlement.yaml
+asyncapi: 3.0.0
+id: urn:fintechbankx:asyncapi:svc-pay-initiation-settlement
+info:
+  title: svc-pay-initiation-settlement events
+  version: 1.0.0
+  description: |-
+    Event contract for svc-pay-initiation-settlement (repository fintechbankx-lendingpayments-payment-orchestration-initiation-settlement, canonical name fintechbankx-payments-initiation-settlement-service).
+
+    Status: Proposed. Owner: Payment Orchestration Squad, Lending and Money Movement Tribe. Event namespace: `evt.pay.payment`.
+
+    Implementation status: Contract only. Events are raised on the Payment aggregate (payment-domain Payment.java) but the repository has no publisher adapter or outbox yet.
+
+    Every message uses the standard envelope (common/event-envelope.yaml). Record key is the aggregateId. Topics use cleanup.policy=delete. Adding an optional field is a minor change; any removal, rename or type change is a new major version on a new topic with dual-publish.
+  tags:
+  - name: payments
+  - name: evt.pay.payment
+  x-service-id: svc-pay-initiation-settlement
+  x-event-namespace: evt.pay.payment
+  x-owning-squad: Payment Orchestration Squad
+defaultContentType: application/json
+servers:
+  kafka:
+    host: '{bootstrapServers}'
+    protocol: kafka-secure
+    description: FinTechBankX event platform cluster (svc-evt-streaming). mTLS required.
+    variables:
+      bootstrapServers:
+        description: Bootstrap servers, injected per environment by the platform.
+    security:
+    - $ref: '#/components/securitySchemes/mtls'
+channels:
+  created:
+    address: evt.pay.payment.created.v1
+    title: evt.pay.payment.created.v1
+    description: Payments.Payment.Created.v1. A payment was created.
+    messages:
+      PaymentCreated:
+        $ref: '#/components/messages/PaymentCreated'
+    bindings:
+      kafka:
+        topic: evt.pay.payment.created.v1
+        partitions: 3
+        replicas: 3
+        topicConfiguration:
+          cleanup.policy:
+          - delete
+          retention.ms: 604800000
+          max.message.bytes: 1048576
+        bindingVersion: 0.5.0
+  processingStarted:
+    address: evt.pay.payment.processing-started.v1
+    title: evt.pay.payment.processing-started.v1
+    description: Payments.Payment.ProcessingStarted.v1. The payment moved from PENDING to PROCESSING.
+    messages:
+      PaymentProcessingStarted:
+        $ref: '#/components/messages/PaymentProcessingStarted'
+    bindings:
+      kafka:
+        topic: evt.pay.payment.processing-started.v1
+        partitions: 3
+        replicas: 3
+        topicConfiguration:
+          cleanup.policy:
+          - delete
+          retention.ms: 604800000
+          max.message.bytes: 1048576
+        bindingVersion: 0.5.0
+  completed:
+    address: evt.pay.payment.completed.v1
+    title: evt.pay.payment.completed.v1
+    description: Payments.Payment.Completed.v1. The payment completed.
+    messages:
+      PaymentCompleted:
+        $ref: '#/components/messages/PaymentCompleted'
+    bindings:
+      kafka:
+        topic: evt.pay.payment.completed.v1
+        partitions: 3
+        replicas: 3
+        topicConfiguration:
+          cleanup.policy:
+          - delete
+          retention.ms: 604800000
+          max.message.bytes: 1048576
+        bindingVersion: 0.5.0
+  failed:
+    address: evt.pay.payment.failed.v1
+    title: evt.pay.payment.failed.v1
+    description: Payments.Payment.Failed.v1. The payment failed.
+    messages:
+      PaymentFailed:
+        $ref: '#/components/messages/PaymentFailed'
+    bindings:
+      kafka:
+        topic: evt.pay.payment.failed.v1
+        partitions: 3
+        replicas: 3
+        topicConfiguration:
+          cleanup.policy:
+          - delete
+          retention.ms: 604800000
+          max.message.bytes: 1048576
+        bindingVersion: 0.5.0
+  cancelled:
+    address: evt.pay.payment.cancelled.v1
+    title: evt.pay.payment.cancelled.v1
+    description: Payments.Payment.Cancelled.v1. The payment was cancelled.
+    messages:
+      PaymentCancelled:
+        $ref: '#/components/messages/PaymentCancelled'
+    bindings:
+      kafka:
+        topic: evt.pay.payment.cancelled.v1
+        partitions: 3
+        replicas: 3
+        topicConfiguration:
+          cleanup.policy:
+          - delete
+          retention.ms: 604800000
+          max.message.bytes: 1048576
+        bindingVersion: 0.5.0
+  refunded:
+    address: evt.pay.payment.refunded.v1
+    title: evt.pay.payment.refunded.v1
+    description: Payments.Payment.Refunded.v1. The payment was refunded.
+    messages:
+      PaymentRefunded:
+        $ref: '#/components/messages/PaymentRefunded'
+    bindings:
+      kafka:
+        topic: evt.pay.payment.refunded.v1
+        partitions: 3
+        replicas: 3
+        topicConfiguration:
+          cleanup.policy:
+          - delete
+          retention.ms: 604800000
+          max.message.bytes: 1048576
+        bindingVersion: 0.5.0
+  loanPaymentCreated:
+    address: evt.pay.payment.loan-payment-created.v1
+    title: evt.pay.payment.loan-payment-created.v1
+    description: Payments.Payment.LoanPaymentCreated.v1. A loan repayment payment was created.
+    messages:
+      PaymentLoanPaymentCreated:
+        $ref: '#/components/messages/PaymentLoanPaymentCreated'
+    bindings:
+      kafka:
+        topic: evt.pay.payment.loan-payment-created.v1
+        partitions: 3
+        replicas: 3
+        topicConfiguration:
+          cleanup.policy:
+          - delete
+          retention.ms: 604800000
+          max.message.bytes: 1048576
+        bindingVersion: 0.5.0
+  loanPaymentCompleted:
+    address: evt.pay.payment.loan-payment-completed.v1
+    title: evt.pay.payment.loan-payment-completed.v1
+    description: Payments.Payment.LoanPaymentCompleted.v1. A loan repayment payment completed.
+    messages:
+      PaymentLoanPaymentCompleted:
+        $ref: '#/components/messages/PaymentLoanPaymentCompleted'
+    bindings:
+      kafka:
+        topic: evt.pay.payment.loan-payment-completed.v1
+        partitions: 3
+        replicas: 3
+        topicConfiguration:
+          cleanup.policy:
+          - delete
+          retention.ms: 604800000
+          max.message.bytes: 1048576
+        bindingVersion: 0.5.0
+  loanPaymentFailed:
+    address: evt.pay.payment.loan-payment-failed.v1
+    title: evt.pay.payment.loan-payment-failed.v1
+    description: Payments.Payment.LoanPaymentFailed.v1. A loan repayment payment failed.
+    messages:
+      PaymentLoanPaymentFailed:
+        $ref: '#/components/messages/PaymentLoanPaymentFailed'
+    bindings:
+      kafka:
+        topic: evt.pay.payment.loan-payment-failed.v1
+        partitions: 3
+        replicas: 3
+        topicConfiguration:
+          cleanup.policy:
+          - delete
+          retention.ms: 604800000
+          max.message.bytes: 1048576
+        bindingVersion: 0.5.0
+  deadLetter:
+    address: evt.pay.payment.dlq.v1
+    title: evt.pay.payment.dlq.v1
+    description: Dead-letter topic for the evt.pay.payment namespace. Written by consumers (not by svc-pay-initiation-settlement)
+      after bounded retries; replayed by the owning consumer squad.
+    messages:
+      DeadLetter:
+        $ref: '#/components/messages/DeadLetter'
+    bindings:
+      kafka:
+        topic: evt.pay.payment.dlq.v1
+        partitions: 3
+        replicas: 3
+        topicConfiguration:
+          cleanup.policy:
+          - delete
+          retention.ms: 1209600000
+          max.message.bytes: 1048576
+        bindingVersion: 0.5.0
+operations:
+  publishPaymentCreated:
+    action: send
+    title: Publish Payments.Payment.Created.v1
+    summary: svc-pay-initiation-settlement publishes Payments.Payment.Created.v1 through its transactional outbox.
+    channel:
+      $ref: '#/channels/created'
+    messages:
+    - $ref: '#/channels/created/messages/PaymentCreated'
+  publishPaymentProcessingStarted:
+    action: send
+    title: Publish Payments.Payment.ProcessingStarted.v1
+    summary: svc-pay-initiation-settlement publishes Payments.Payment.ProcessingStarted.v1 through its transactional
+      outbox.
+    channel:
+      $ref: '#/channels/processingStarted'
+    messages:
+    - $ref: '#/channels/processingStarted/messages/PaymentProcessingStarted'
+  publishPaymentCompleted:
+    action: send
+    title: Publish Payments.Payment.Completed.v1
+    summary: svc-pay-initiation-settlement publishes Payments.Payment.Completed.v1 through its transactional outbox.
+    channel:
+      $ref: '#/channels/completed'
+    messages:
+    - $ref: '#/channels/completed/messages/PaymentCompleted'
+  publishPaymentFailed:
+    action: send
+    title: Publish Payments.Payment.Failed.v1
+    summary: svc-pay-initiation-settlement publishes Payments.Payment.Failed.v1 through its transactional outbox.
+    channel:
+      $ref: '#/channels/failed'
+    messages:
+    - $ref: '#/channels/failed/messages/PaymentFailed'
+  publishPaymentCancelled:
+    action: send
+    title: Publish Payments.Payment.Cancelled.v1
+    summary: svc-pay-initiation-settlement publishes Payments.Payment.Cancelled.v1 through its transactional outbox.
+    channel:
+      $ref: '#/channels/cancelled'
+    messages:
+    - $ref: '#/channels/cancelled/messages/PaymentCancelled'
+  publishPaymentRefunded:
+    action: send
+    title: Publish Payments.Payment.Refunded.v1
+    summary: svc-pay-initiation-settlement publishes Payments.Payment.Refunded.v1 through its transactional outbox.
+    channel:
+      $ref: '#/channels/refunded'
+    messages:
+    - $ref: '#/channels/refunded/messages/PaymentRefunded'
+  publishPaymentLoanPaymentCreated:
+    action: send
+    title: Publish Payments.Payment.LoanPaymentCreated.v1
+    summary: svc-pay-initiation-settlement publishes Payments.Payment.LoanPaymentCreated.v1 through its transactional
+      outbox.
+    channel:
+      $ref: '#/channels/loanPaymentCreated'
+    messages:
+    - $ref: '#/channels/loanPaymentCreated/messages/PaymentLoanPaymentCreated'
+  publishPaymentLoanPaymentCompleted:
+    action: send
+    title: Publish Payments.Payment.LoanPaymentCompleted.v1
+    summary: svc-pay-initiation-settlement publishes Payments.Payment.LoanPaymentCompleted.v1 through its transactional
+      outbox.
+    channel:
+      $ref: '#/channels/loanPaymentCompleted'
+    messages:
+    - $ref: '#/channels/loanPaymentCompleted/messages/PaymentLoanPaymentCompleted'
+  publishPaymentLoanPaymentFailed:
+    action: send
+    title: Publish Payments.Payment.LoanPaymentFailed.v1
+    summary: svc-pay-initiation-settlement publishes Payments.Payment.LoanPaymentFailed.v1 through its transactional
+      outbox.
+    channel:
+      $ref: '#/channels/loanPaymentFailed'
+    messages:
+    - $ref: '#/channels/loanPaymentFailed/messages/PaymentLoanPaymentFailed'
+components:
+  schemas:
+    EventEnvelope:
+      $ref: ./common/event-envelope.yaml#/EventEnvelope
+    EventHeaders:
+      $ref: ./common/event-envelope.yaml#/EventHeaders
+    DeadLetterHeaders:
+      $ref: ./common/event-envelope.yaml#/DeadLetterHeaders
+    MonetaryAmount:
+      $ref: ./common/event-envelope.yaml#/MonetaryAmount
+    DecimalAmount:
+      $ref: ./common/event-envelope.yaml#/DecimalAmount
+    PaymentCreatedData:
+      type: object
+      description: Payload of Payments.Payment.Created.v1.
+      properties:
+        paymentId:
+          type: string
+          description: Payment id (same as aggregateId).
+          minLength: 1
+        customerId:
+          type: string
+          description: Customer id.
+          minLength: 1
+        amount:
+          allOf:
+          - $ref: '#/components/schemas/MonetaryAmount'
+          description: Payment amount.
+        paymentType:
+          type: string
+          description: Payment type.
+          enum:
+          - TRANSFER
+          - WIRE_TRANSFER
+          - ACH
+          - CHECK
+          - CREDIT_CARD
+          - DEBIT_CARD
+          - MOBILE_PAYMENT
+          - LOAN_PAYMENT
+          - BILL_PAYMENT
+      required:
+      - paymentId
+      - customerId
+      - amount
+      - paymentType
+    PaymentProcessingStartedData:
+      type: object
+      description: Payload of Payments.Payment.ProcessingStarted.v1.
+      properties:
+        paymentId:
+          type: string
+          description: Payment id.
+          minLength: 1
+        customerId:
+          type: string
+          description: Customer id.
+          minLength: 1
+      required:
+      - paymentId
+      - customerId
+    PaymentCompletedData:
+      type: object
+      description: Payload of Payments.Payment.Completed.v1.
+      properties:
+        paymentId:
+          type: string
+          description: Payment id.
+          minLength: 1
+        customerId:
+          type: string
+          description: Customer id.
+          minLength: 1
+        amount:
+          allOf:
+          - $ref: '#/components/schemas/MonetaryAmount'
+          description: Completed amount.
+      required:
+      - paymentId
+      - customerId
+      - amount
+    PaymentFailedData:
+      type: object
+      description: Payload of Payments.Payment.Failed.v1.
+      properties:
+        paymentId:
+          type: string
+          description: Payment id.
+          minLength: 1
+        customerId:
+          type: string
+          description: Customer id.
+          minLength: 1
+        failureReason:
+          type: string
+          description: Failure reason code or text. Must not contain personal data.
+      required:
+      - paymentId
+      - customerId
+      - failureReason
+    PaymentCancelledData:
+      type: object
+      description: Payload of Payments.Payment.Cancelled.v1.
+      properties:
+        paymentId:
+          type: string
+          description: Payment id.
+          minLength: 1
+        customerId:
+          type: string
+          description: Customer id.
+          minLength: 1
+        cancellationReason:
+          type: string
+          description: Cancellation reason. Must not contain personal data.
+      required:
+      - paymentId
+      - customerId
+      - cancellationReason
+    PaymentRefundedData:
+      type: object
+      description: Payload of Payments.Payment.Refunded.v1.
+      properties:
+        paymentId:
+          type: string
+          description: Payment id.
+          minLength: 1
+        customerId:
+          type: string
+          description: Customer id.
+          minLength: 1
+        refundAmount:
+          allOf:
+          - $ref: '#/components/schemas/MonetaryAmount'
+          description: Refunded amount.
+      required:
+      - paymentId
+      - customerId
+      - refundAmount
+    PaymentLoanPaymentCreatedData:
+      type: object
+      description: Payload of Payments.Payment.LoanPaymentCreated.v1.
+      properties:
+        paymentId:
+          type: string
+          description: Payment id.
+          minLength: 1
+        customerId:
+          type: string
+          description: Customer id.
+          minLength: 1
+        loanId:
+          type: string
+          description: Loan id.
+          minLength: 1
+        scheduledAmount:
+          allOf:
+          - $ref: '#/components/schemas/MonetaryAmount'
+          description: Scheduled repayment amount.
+      required:
+      - paymentId
+      - customerId
+      - loanId
+      - scheduledAmount
+    PaymentLoanPaymentCompletedData:
+      type: object
+      description: Payload of Payments.Payment.LoanPaymentCompleted.v1.
+      properties:
+        paymentId:
+          type: string
+          description: Payment id.
+          minLength: 1
+        customerId:
+          type: string
+          description: Customer id.
+          minLength: 1
+        loanId:
+          type: string
+          description: Loan id.
+          minLength: 1
+        actualAmount:
+          allOf:
+          - $ref: '#/components/schemas/MonetaryAmount'
+          description: Amount actually paid.
+      required:
+      - paymentId
+      - customerId
+      - loanId
+      - actualAmount
+    PaymentLoanPaymentFailedData:
+      type: object
+      description: Payload of Payments.Payment.LoanPaymentFailed.v1.
+      properties:
+        paymentId:
+          type: string
+          description: Payment id.
+          minLength: 1
+        customerId:
+          type: string
+          description: Customer id.
+          minLength: 1
+        loanId:
+          type: string
+          description: Loan id.
+          minLength: 1
+        failureReason:
+          type: string
+          description: Failure reason code or text. Must not contain personal data.
+      required:
+      - paymentId
+      - customerId
+      - loanId
+      - failureReason
+  messages:
+    PaymentCreated:
+      name: PaymentCreated
+      title: Payments.Payment.Created.v1
+      summary: A payment was created.
+      contentType: application/json
+      headers:
+        $ref: '#/components/schemas/EventHeaders'
+      payload:
+        allOf:
+        - $ref: '#/components/schemas/EventEnvelope'
+        - type: object
+          properties:
+            eventType:
+              const: Payments.Payment.Created.v1
+            producer:
+              const: svc-pay-initiation-settlement
+            data:
+              $ref: '#/components/schemas/PaymentCreatedData'
+      bindings:
+        kafka:
+          key:
+            type: string
+            description: aggregateId (paymentId).
+          bindingVersion: 0.5.0
+      x-source-class: com.bank.payment.domain.PaymentCreatedEvent
+    PaymentProcessingStarted:
+      name: PaymentProcessingStarted
+      title: Payments.Payment.ProcessingStarted.v1
+      summary: The payment moved from PENDING to PROCESSING.
+      contentType: application/json
+      headers:
+        $ref: '#/components/schemas/EventHeaders'
+      payload:
+        allOf:
+        - $ref: '#/components/schemas/EventEnvelope'
+        - type: object
+          properties:
+            eventType:
+              const: Payments.Payment.ProcessingStarted.v1
+            producer:
+              const: svc-pay-initiation-settlement
+            data:
+              $ref: '#/components/schemas/PaymentProcessingStartedData'
+      bindings:
+        kafka:
+          key:
+            type: string
+            description: aggregateId (paymentId).
+          bindingVersion: 0.5.0
+      x-source-class: com.bank.payment.domain.PaymentProcessingEvent
+    PaymentCompleted:
+      name: PaymentCompleted
+      title: Payments.Payment.Completed.v1
+      summary: The payment completed.
+      contentType: application/json
+      headers:
+        $ref: '#/components/schemas/EventHeaders'
+      payload:
+        allOf:
+        - $ref: '#/components/schemas/EventEnvelope'
+        - type: object
+          properties:
+            eventType:
+              const: Payments.Payment.Completed.v1
+            producer:
+              const: svc-pay-initiation-settlement
+            data:
+              $ref: '#/components/schemas/PaymentCompletedData'
+      bindings:
+        kafka:
+          key:
+            type: string
+            description: aggregateId (paymentId).
+          bindingVersion: 0.5.0
+      x-source-class: com.bank.payment.domain.PaymentCompletedEvent
+    PaymentFailed:
+      name: PaymentFailed
+      title: Payments.Payment.Failed.v1
+      summary: The payment failed.
+      contentType: application/json
+      headers:
+        $ref: '#/components/schemas/EventHeaders'
+      payload:
+        allOf:
+        - $ref: '#/components/schemas/EventEnvelope'
+        - type: object
+          properties:
+            eventType:
+              const: Payments.Payment.Failed.v1
+            producer:
+              const: svc-pay-initiation-settlement
+            data:
+              $ref: '#/components/schemas/PaymentFailedData'
+      bindings:
+        kafka:
+          key:
+            type: string
+            description: aggregateId (paymentId).
+          bindingVersion: 0.5.0
+      x-source-class: com.bank.payment.domain.PaymentFailedEvent
+    PaymentCancelled:
+      name: PaymentCancelled
+      title: Payments.Payment.Cancelled.v1
+      summary: The payment was cancelled.
+      contentType: application/json
+      headers:
+        $ref: '#/components/schemas/EventHeaders'
+      payload:
+        allOf:
+        - $ref: '#/components/schemas/EventEnvelope'
+        - type: object
+          properties:
+            eventType:
+              const: Payments.Payment.Cancelled.v1
+            producer:
+              const: svc-pay-initiation-settlement
+            data:
+              $ref: '#/components/schemas/PaymentCancelledData'
+      bindings:
+        kafka:
+          key:
+            type: string
+            description: aggregateId (paymentId).
+          bindingVersion: 0.5.0
+      x-source-class: com.bank.payment.domain.PaymentCancelledEvent
+    PaymentRefunded:
+      name: PaymentRefunded
+      title: Payments.Payment.Refunded.v1
+      summary: The payment was refunded.
+      contentType: application/json
+      headers:
+        $ref: '#/components/schemas/EventHeaders'
+      payload:
+        allOf:
+        - $ref: '#/components/schemas/EventEnvelope'
+        - type: object
+          properties:
+            eventType:
+              const: Payments.Payment.Refunded.v1
+            producer:
+              const: svc-pay-initiation-settlement
+            data:
+              $ref: '#/components/schemas/PaymentRefundedData'
+      bindings:
+        kafka:
+          key:
+            type: string
+            description: aggregateId (paymentId).
+          bindingVersion: 0.5.0
+      x-source-class: com.bank.payment.domain.PaymentRefundedEvent
+    PaymentLoanPaymentCreated:
+      name: PaymentLoanPaymentCreated
+      title: Payments.Payment.LoanPaymentCreated.v1
+      summary: A loan repayment payment was created.
+      contentType: application/json
+      headers:
+        $ref: '#/components/schemas/EventHeaders'
+      payload:
+        allOf:
+        - $ref: '#/components/schemas/EventEnvelope'
+        - type: object
+          properties:
+            eventType:
+              const: Payments.Payment.LoanPaymentCreated.v1
+            producer:
+              const: svc-pay-initiation-settlement
+            data:
+              $ref: '#/components/schemas/PaymentLoanPaymentCreatedData'
+      bindings:
+        kafka:
+          key:
+            type: string
+            description: aggregateId (paymentId).
+          bindingVersion: 0.5.0
+      x-source-class: com.bank.payment.domain.LoanPaymentCreatedEvent
+    PaymentLoanPaymentCompleted:
+      name: PaymentLoanPaymentCompleted
+      title: Payments.Payment.LoanPaymentCompleted.v1
+      summary: A loan repayment payment completed.
+      contentType: application/json
+      headers:
+        $ref: '#/components/schemas/EventHeaders'
+      payload:
+        allOf:
+        - $ref: '#/components/schemas/EventEnvelope'
+        - type: object
+          properties:
+            eventType:
+              const: Payments.Payment.LoanPaymentCompleted.v1
+            producer:
+              const: svc-pay-initiation-settlement
+            data:
+              $ref: '#/components/schemas/PaymentLoanPaymentCompletedData'
+      bindings:
+        kafka:
+          key:
+            type: string
+            description: aggregateId (paymentId).
+          bindingVersion: 0.5.0
+      x-source-class: com.bank.payment.domain.LoanPaymentCompletedEvent
+    PaymentLoanPaymentFailed:
+      name: PaymentLoanPaymentFailed
+      title: Payments.Payment.LoanPaymentFailed.v1
+      summary: A loan repayment payment failed.
+      contentType: application/json
+      headers:
+        $ref: '#/components/schemas/EventHeaders'
+      payload:
+        allOf:
+        - $ref: '#/components/schemas/EventEnvelope'
+        - type: object
+          properties:
+            eventType:
+              const: Payments.Payment.LoanPaymentFailed.v1
+            producer:
+              const: svc-pay-initiation-settlement
+            data:
+              $ref: '#/components/schemas/PaymentLoanPaymentFailedData'
+      bindings:
+        kafka:
+          key:
+            type: string
+            description: aggregateId (paymentId).
+          bindingVersion: 0.5.0
+      x-source-class: com.bank.payment.domain.LoanPaymentFailedEvent
+    DeadLetter:
+      name: DeadLetter
+      title: Dead letter for evt.pay.payment
+      summary: A message from this namespace that a consumer could not process after bounded retries.
+      contentType: application/json
+      headers:
+        $ref: '#/components/schemas/DeadLetterHeaders'
+      payload:
+        $ref: '#/components/schemas/EventEnvelope'
+      bindings:
+        kafka:
+          key:
+            type: string
+            description: Original record key (aggregateId).
+          bindingVersion: 0.5.0
+  securitySchemes:
+    mtls:
+      type: X509
+      description: Mutual TLS with platform-issued client certificates.
