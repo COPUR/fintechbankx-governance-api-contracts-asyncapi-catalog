@@ -94,11 +94,14 @@ jobs:
           NPM_CONFIG_CACHE: /tmp/.npm
         shell: bash
         run: |
-          if ls asyncapi/*.yaml >/dev/null 2>&1; then
-            npx -y @asyncapi/cli@2.13.0 validate asyncapi/*.yaml
-          elif ls asyncapi/*.yml >/dev/null 2>&1; then
-            npx -y @asyncapi/cli@2.13.0 validate asyncapi/*.yml
-          fi
+          set -euo pipefail
+          # asyncapi validate accepts a single spec file, so validate one file per call.
+          shopt -s nullglob
+          specs=(asyncapi/*.yaml asyncapi/*.yml)
+          for spec in "${specs[@]}"; do
+            echo "Validating ${spec}"
+            npx -y @asyncapi/cli@2.13.0 validate "${spec}"
+          done
 
       - name: Guardrail - disallow generic map request payloads
         shell: bash
