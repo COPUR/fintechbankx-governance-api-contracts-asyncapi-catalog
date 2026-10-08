@@ -1,0 +1,5 @@
+# Accepted breaking findings for asyncapi/svc-pay-request-to-pay.yaml (Status: Proposed).
+# Dead-letter topics are consumer-owned (ADR-019, ADR-024): a consumer dead-letters into its own namespace.
+# svc-pay-request-to-pay consumes nothing, so it lists no DLQ. Nothing was ever written to evt.pay.rtp.dlq.v1,
+# and a consumer of evt.pay.rtp.* topics declares its DLQ in its own spec.
+removed-channel evt.pay.rtp.dlq.v1

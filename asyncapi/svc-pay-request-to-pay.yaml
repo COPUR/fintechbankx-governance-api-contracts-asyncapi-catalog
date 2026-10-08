@@ -1,5 +1,6 @@
 # AsyncAPI contract for svc-pay-request-to-pay.
 # Status: Proposed. The provider repository owns this contract; this catalog mirrors it.
+# Provider copy: fintechbankx-lendingpayments-payment-orchestration-request-to-pay api/asyncapi/svc-pay-request-to-pay.yaml (branch claude/lending-payments-deployable-zxfdi1).
 # Naming: docs/NAMING_CONVENTION_DDD_EDA_BUSINESS_CONTEXT.md
 # Validate: npx -y @asyncapi/cli@2.13.0 validate asyncapi/svc-pay-request-to-pay.yaml
 asyncapi: 3.0.0
@@ -12,7 +13,7 @@ info:
 
     Status: Proposed. Owner: Recurring and Bulk Payments Squad, Lending and Money Movement Tribe. Event namespace: `evt.pay.rtp`.
 
-    Implementation status: Published today by KafkaPayRequestNotificationAdapter to the legacy topic rtp.pay_requests.v1 as bare event records (no envelope, no outbox). This contract is the target; the producer must dual-publish during migration.
+    Implementation status: written by the transactional outbox (OutboxPayRequestEventPublisher, table sc_pay_request_to_pay.outbox_event) in the pay request's transaction and relayed by OutboxRelay (one active relay per cluster, per-aggregate order, max attempts then parked). The legacy topic rtp.pay_requests.v1 is no longer published: its publisher could not start (no runnable application, two competing notification beans), so no consumer ever received it and no dual-publish window is needed. Envelope shape is pinned by PayRequestEventEnvelopeFactoryTest.
 
     Every message uses the standard envelope (common/event-envelope.yaml). Record key is the aggregateId. Topics use cleanup.policy=delete. Adding an optional field is a minor change; any removal, rename or type change is a new major version on a new topic with dual-publish.
 
@@ -101,25 +102,6 @@ channels:
           retention.ms: 604800000
           max.message.bytes: 1048576
         bindingVersion: 0.5.0
-  deadLetter:
-    address: evt.pay.rtp.dlq.v1
-    title: evt.pay.rtp.dlq.v1
-    description: Dead-letter topic for the evt.pay.rtp namespace. Written by consumers (not by svc-pay-request-to-pay)
-      after bounded retries; replayed by the owning consumer squad.
-    messages:
-      DeadLetter:
-        $ref: '#/components/messages/DeadLetter'
-    bindings:
-      kafka:
-        topic: evt.pay.rtp.dlq.v1
-        partitions: 3
-        replicas: 3
-        topicConfiguration:
-          cleanup.policy:
-          - delete
-          retention.ms: 1209600000
-          max.message.bytes: 1048576
-        bindingVersion: 0.5.0
 operations:
   publishPayRequestCreated:
     action: send
@@ -151,8 +133,6 @@ components:
       $ref: ./common/event-envelope.yaml#/EventEnvelope
     EventHeaders:
       $ref: ./common/event-envelope.yaml#/EventHeaders
-    DeadLetterHeaders:
-      $ref: ./common/event-envelope.yaml#/DeadLetterHeaders
     MonetaryAmount:
       $ref: ./common/event-envelope.yaml#/MonetaryAmount
     DecimalAmount:
@@ -290,21 +270,6 @@ components:
             description: aggregateId (consentId of the pay request).
           bindingVersion: 0.5.0
       x-source-class: com.enterprise.openfinance.requesttopay.domain.event.PayRequestRejectedEvent
-    DeadLetter:
-      name: DeadLetter
-      title: Dead letter for evt.pay.rtp
-      summary: A message from this namespace that a consumer could not process after bounded retries.
-      contentType: application/json
-      headers:
-        $ref: '#/components/schemas/DeadLetterHeaders'
-      payload:
-        $ref: '#/components/schemas/EventEnvelope'
-      bindings:
-        kafka:
-          key:
-            type: string
-            description: Original record key (aggregateId).
-          bindingVersion: 0.5.0
   securitySchemes:
     mskIam:
       type: userPassword

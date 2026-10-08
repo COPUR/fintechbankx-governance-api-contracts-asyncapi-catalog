@@ -1,0 +1,8 @@
+# Accepted breaking findings for asyncapi/svc-ln-loan-lifecycle.yaml (Status: Proposed).
+# No v2 or dual-publish: no evt.ln.loan.* record has been produced yet. The provider default branch has no
+# publisher, and the outbox relay on the provider branch stays off (OUTBOX_RELAY_ENABLED=false) until these
+# topics are catalogued, so no consumer can hold the previous shape. The catalog now mirrors what
+# LoanEventEnvelopeFactory writes (provider branch claude/project-thread-ty79y4).
+changed-type evt.ln.loan.rejected.v1 LoanRejected $.data.reason   # reason is optional and nullable in the provider
+changed-type evt.ln.loan.cancelled.v1 LoanCancelled $.data.reason # reason is optional and nullable in the provider
+newly-required evt.ln.loan.payment-made.v1 LoanPaymentMade $.data.paymentId # provider always sets paymentId

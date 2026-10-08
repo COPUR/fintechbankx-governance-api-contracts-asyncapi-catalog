@@ -10,12 +10,15 @@ record key is `aggregateId`. Naming follows
 
 | Contract | Service | Namespace | Topics | Implementation today |
 |---|---|---|---|---|
-| [svc-ln-loan-lifecycle.yaml](svc-ln-loan-lifecycle.yaml) | Loan lifecycle | `evt.ln.loan` | `created`, `approved`, `rejected`, `disbursed`, `cancelled`, `payment-made`, `fully-paid` | Domain events raised; no publisher adapter |
+| [svc-ln-loan-lifecycle.yaml](svc-ln-loan-lifecycle.yaml) | Loan lifecycle | `evt.ln.loan` | `created`, `approved`, `rejected`, `disbursed`, `cancelled`, `payment-made`, `fully-paid`; DLQ `dlq` (consumes `evt.pay.payment.loan-payment-completed.v1`) | Domain events raised; no publisher adapter (outbox, relay and repayment consumer on provider branch `claude/project-thread-ty79y4`) |
 | [svc-pay-initiation-settlement.yaml](svc-pay-initiation-settlement.yaml) | Payment initiation and settlement | `evt.pay.payment` | `created`, `processing-started`, `completed`, `failed`, `cancelled`, `refunded`, `loan-payment-created`, `loan-payment-completed`, `loan-payment-failed` | Domain events raised; no publisher adapter |
-| [svc-pay-request-to-pay.yaml](svc-pay-request-to-pay.yaml) | Request to pay | `evt.pay.rtp` | `created`, `accepted`, `rejected` | Published to legacy `rtp.pay_requests.v1` without envelope |
+| [svc-pay-request-to-pay.yaml](svc-pay-request-to-pay.yaml) | Request to pay | `evt.pay.rtp` | `created`, `accepted`, `rejected` | Published to legacy `rtp.pay_requests.v1` without envelope (outbox on provider branch `claude/lending-payments-deployable-zxfdi1`) |
+| [svc-pay-recurring-mandates.yaml](svc-pay-recurring-mandates.yaml) | Recurring payment mandates | `evt.pay.mandate` | `created`, `revoked`, `payment-accepted` | No publisher on default branch (outbox on provider branch `claude/lending-payments-deployable-zxfdi1`) |
+| [svc-pay-bulk-orchestration.yaml](svc-pay-bulk-orchestration.yaml) | Bulk payment files | `evt.pay.bulk` | `accepted`, `completed`, `rejected` | No publisher on default branch (outbox on provider branch `claude/lending-payments-deployable-zxfdi1`) |
 | [svc-cus-profile-kyc.yaml](svc-cus-profile-kyc.yaml) | Customer profile and KYC | `evt.cus.customer` | `created`, `contact-updated`, `credit-limit-updated`, `credit-reserved`, `credit-released`, `credit-score-updated` | Published after save via an external `DomainEventPublisher`; no outbox |
 
-Full topic names are `<namespace>.<event>.v1`. Each namespace also has a dead-letter topic `<namespace>.dlq.v1`.
+Full topic names are `<namespace>.<event>.v1`. A service that consumes also has a dead-letter topic `<namespace>.dlq.v1`
+in its own namespace; a publish-only service (request to pay, recurring mandates, bulk) lists none.
 
 Dead-letter topics are consumer-owned (ADR-019 in the ADR repo): a consumer that gives up on a record after bounded
 retries writes it to the DLQ in **its own** namespace, never to the source topic's namespace. For example, the loan
@@ -27,7 +30,7 @@ rejects a send channel outside it. Topics are provisioned by `scripts/kafka/crea
 `fintechbankx-platform-event-streaming-kafka`.
 
 No other fintechbankx service publishes events in code today (consent, account data, payee, metadata, open data,
-risk, compliance, bulk and recurring payments). Risk, compliance, consent, recurring mandates and bulk payments are
+risk, compliance, bulk and recurring payments). Risk, compliance and consent are
 expected publishers and are listed in the catalog index without a file. Add a contract here, and update the index
 entry, when the provider adds one.
 
@@ -53,14 +56,15 @@ Status today (Proposed):
 | `svc-ln-loan-lifecycle` | `evt.ln.loan` | `contract-only` | outbox and relay on unmerged provider branch `claude/project-thread-ty79y4` |
 | `svc-pay-initiation-settlement` | `evt.pay.payment` | `contract-only` | outbox and relay on unmerged provider branch `claude/project-thread-ty79y4` |
 | `svc-cus-profile-kyc` | `evt.cus.customer` | `contract-only` | outbox and relay on unmerged provider branch `claude/project-thread-ty79y4` |
-| `svc-pay-request-to-pay` | `evt.pay.rtp` | `publishes-legacy` | legacy topic `rtp.pay_requests.v1`, no envelope |
+| `svc-pay-request-to-pay` | `evt.pay.rtp` | `publishes-legacy` | legacy topic `rtp.pay_requests.v1`, no envelope; outbox and relay on unmerged provider branch `claude/lending-payments-deployable-zxfdi1` |
 | `svc-rsk-decisioning` | `evt.rsk.risk` | `no-contract` | expected |
 | `svc-cmp-evidence` | `evt.cmp.compliance` | `no-contract` | expected |
 | `svc-of-consent-authorization` | `evt.of.consent` | `no-contract` | expected |
-| `svc-pay-recurring-mandates` | `evt.pay.mandate` | `no-contract` | expected |
-| `svc-pay-bulk-orchestration` | `evt.pay.bulk` | `no-contract` | expected |
+| `svc-pay-recurring-mandates` | `evt.pay.mandate` | `contract-only` | outbox and relay on unmerged provider branch `claude/lending-payments-deployable-zxfdi1` |
+| `svc-pay-bulk-orchestration` | `evt.pay.bulk` | `contract-only` | outbox and relay on unmerged provider branch `claude/lending-payments-deployable-zxfdi1` |
 
-No provider repository carries its own AsyncAPI file yet, so every `providerSpecPath` is `null`.
+No provider default branch carries its own AsyncAPI file yet, so every `providerSpecPath` is `null`. The loan, request-to-pay,
+recurring-mandates and bulk providers have `api/asyncapi/<service-id>.yaml` on their unmerged branches; set the path when they merge.
 
 ## Checks
 
