@@ -18,7 +18,7 @@
       "implementationStatus": "contract-only",
       "implementationNote": "Customer aggregate events are passed to DomainEventPublisher.publishAll after save; no publisher implementation or outbox in the repository default branch, so nothing reaches Kafka from it.",
       "pendingImplementation": {
-        "branch": "claude/project-thread-ty79y4",
+        "branch": "claude/customer-risk-compliance-deployable-ygi0zo",
         "repo": "COPUR/fintechbankx-customer-profile-kyc-core",
         "status": "outbox",
         "note": "Transactional outbox, envelope factory and relay on an unmerged branch; status changes to outbox when the provider merges it."
@@ -109,30 +109,46 @@
       "providerSpecPath": null
     },
     {
-      "file": null,
+      "file": "asyncapi/svc-rsk-decisioning.yaml",
       "serviceId": "svc-rsk-decisioning",
       "ownerRepo": "COPUR/fintechbankx-riskcompliance-risk-decisioning-core",
       "canonicalRepo": "fintechbankx-risk-decisioning-service",
       "owningSquad": "Risk and Compliance Decisioning Squad",
       "namespace": "evt.rsk.risk",
-      "channels": [],
+      "channels": [
+        "evt.rsk.risk.assessed.v1",
+        "evt.rsk.risk.dlq.v1"
+      ],
       "providerSpecPath": null,
-      "implementationStatus": "no-contract",
-      "implementationNote": "Expected publisher; no event publishing code and no AsyncAPI contract in the provider repository yet. Add the contract in the provider repository first, then mirror it here.",
-      "pendingImplementation": null
+      "implementationStatus": "contract-only",
+      "implementationNote": "No publisher on the provider default branch yet; the contract and a transactional outbox with relay are on an unmerged provider branch.",
+      "pendingImplementation": {
+        "branch": "claude/customer-risk-compliance-deployable-ygi0zo",
+        "repo": "COPUR/fintechbankx-riskcompliance-risk-decisioning-core",
+        "status": "outbox",
+        "note": "Transactional outbox, envelope factory and relay on an unmerged branch; status changes to outbox when the provider merges it."
+      }
     },
     {
-      "file": null,
+      "file": "asyncapi/svc-cmp-evidence.yaml",
       "serviceId": "svc-cmp-evidence",
       "ownerRepo": "COPUR/fintechbankx-riskcompliance-compliance-evidence-core",
       "canonicalRepo": "fintechbankx-compliance-evidence-service",
       "owningSquad": "Risk and Compliance Decisioning Squad",
       "namespace": "evt.cmp.compliance",
-      "channels": [],
+      "channels": [
+        "evt.cmp.compliance.screened.v1",
+        "evt.cmp.compliance.dlq.v1"
+      ],
       "providerSpecPath": null,
-      "implementationStatus": "no-contract",
-      "implementationNote": "Expected publisher; no event publishing code and no AsyncAPI contract in the provider repository yet. Add the contract in the provider repository first, then mirror it here.",
-      "pendingImplementation": null
+      "implementationStatus": "contract-only",
+      "implementationNote": "No publisher on the provider default branch yet; the contract and a transactional outbox with relay are on an unmerged provider branch.",
+      "pendingImplementation": {
+        "branch": "claude/customer-risk-compliance-deployable-ygi0zo",
+        "repo": "COPUR/fintechbankx-riskcompliance-compliance-evidence-core",
+        "status": "outbox",
+        "note": "Transactional outbox, envelope factory and relay on an unmerged branch; status changes to outbox when the provider merges it."
+      }
     },
     {
       "file": null,

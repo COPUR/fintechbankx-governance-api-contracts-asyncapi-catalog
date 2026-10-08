@@ -13,16 +13,17 @@ record key is `aggregateId`. Naming follows
 | [svc-ln-loan-lifecycle.yaml](svc-ln-loan-lifecycle.yaml) | Loan lifecycle | `evt.ln.loan` | `created`, `approved`, `rejected`, `disbursed`, `cancelled`, `payment-made`, `fully-paid` | Domain events raised; no publisher adapter |
 | [svc-pay-initiation-settlement.yaml](svc-pay-initiation-settlement.yaml) | Payment initiation and settlement | `evt.pay.payment` | `created`, `processing-started`, `completed`, `failed`, `cancelled`, `refunded`, `loan-payment-created`, `loan-payment-completed`, `loan-payment-failed` | Domain events raised; no publisher adapter |
 | [svc-pay-request-to-pay.yaml](svc-pay-request-to-pay.yaml) | Request to pay | `evt.pay.rtp` | `created`, `accepted`, `rejected` | Published to legacy `rtp.pay_requests.v1` without envelope |
-| [svc-cus-profile-kyc.yaml](svc-cus-profile-kyc.yaml) | Customer profile and KYC | `evt.cus.customer` | `created`, `contact-updated`, `credit-limit-updated`, `credit-reserved`, `credit-released`, `credit-score-updated` | Published after save via an external `DomainEventPublisher`; no outbox |
+| [svc-cus-profile-kyc.yaml](svc-cus-profile-kyc.yaml) | Customer profile and KYC | `evt.cus.customer` | `created`, `contact-updated`, `credit-limit-updated`, `credit-reserved`, `credit-released`, `credit-score-updated` | Transactional outbox and relay (customer-profile-kyc-core PR #12) |
+| [svc-rsk-decisioning.yaml](svc-rsk-decisioning.yaml) | Risk decisioning | `evt.rsk.risk` | `assessed` | Transactional outbox and relay (risk-decisioning-core) |
+| [svc-cmp-evidence.yaml](svc-cmp-evidence.yaml) | Compliance evidence | `evt.cmp.compliance` | `screened` | Transactional outbox and relay (compliance-evidence-core) |
 
 Full topic names are `<namespace>.<event>.v1`. Each namespace also has a dead-letter topic `<namespace>.dlq.v1`,
 written by consumers after bounded retries. Topics are provisioned by `scripts/kafka/create-topics.sh` in
 `fintechbankx-platform-event-streaming-kafka`.
 
 No other fintechbankx service publishes events in code today (consent, account data, payee, metadata, open data,
-risk, compliance, bulk and recurring payments). Risk, compliance, consent, recurring mandates and bulk payments are
-expected publishers and are listed in the catalog index without a file. Add a contract here, and update the index
-entry, when the provider adds one.
+bulk and recurring payments). Consent, recurring mandates and bulk payments are expected publishers and are listed
+in the catalog index without a file. Add a contract here, and update the index entry, when the provider adds one.
 
 ## Catalog index
 
