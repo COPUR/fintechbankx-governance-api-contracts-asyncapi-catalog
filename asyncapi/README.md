@@ -14,6 +14,8 @@ record key is `aggregateId`. Naming follows
 | [svc-pay-initiation-settlement.yaml](svc-pay-initiation-settlement.yaml) | Payment initiation and settlement | `evt.pay.payment` | `created`, `processing-started`, `completed`, `failed`, `cancelled`, `refunded`, `loan-payment-created`, `loan-payment-completed`, `loan-payment-failed` | Domain events raised; no publisher adapter |
 | [svc-pay-request-to-pay.yaml](svc-pay-request-to-pay.yaml) | Request to pay | `evt.pay.rtp` | `created`, `accepted`, `rejected` | Published to legacy `rtp.pay_requests.v1` without envelope |
 | [svc-cus-profile-kyc.yaml](svc-cus-profile-kyc.yaml) | Customer profile and KYC | `evt.cus.customer` | `created`, `contact-updated`, `credit-limit-updated`, `credit-reserved`, `credit-released`, `credit-score-updated` | Published after save via an external `DomainEventPublisher`; no outbox |
+| [svc-of-consent-authorization.yaml](svc-of-consent-authorization.yaml) | Consent authorization | `evt.of.consent` | `created`, `authorized`, `revoked`, `expired` | Outbox and relay on unmerged provider branch; default branch publishes nothing |
+| [svc-of-payee-verification.yaml](svc-of-payee-verification.yaml) | Payee verification | `evt.of.payee` | `verification-completed` | Outbox and relay on unmerged provider branch; default branch publishes nothing |
 
 Full topic names are `<namespace>.<event>.v1`. A namespace whose service consumes events also has a dead-letter topic
 `<namespace>.dlq.v1`; `evt.of.consent` and `evt.of.payee` consume nothing, so they declare none.
@@ -27,10 +29,11 @@ so the owning team can replay it. A spec lists its DLQ as a `send` channel in it
 rejects a send channel outside it. Topics are provisioned by `scripts/kafka/create-topics.sh` in
 `fintechbankx-platform-event-streaming-kafka`.
 
-No other fintechbankx service publishes events in code today (consent, account data, payee, metadata, open data,
-risk, compliance, bulk and recurring payments). Risk, compliance, consent, recurring mandates and bulk payments are
-expected publishers and are listed in the catalog index without a file. Add a contract here, and update the index
-entry, when the provider adds one.
+Consent authorization and payee verification publish their contract topics through a transactional outbox on the
+unmerged provider branch `claude/openfinance-deployable-ra36dq`; their provider default branches publish nothing yet.
+No other fintechbankx service publishes events in code today (account data, metadata, open data, risk, compliance,
+bulk and recurring payments). Risk, compliance, recurring mandates and bulk payments are expected publishers and are
+listed in the catalog index without a file. Add a contract here, and update the index entry, when the provider adds one.
 
 ## Catalog index
 
@@ -64,9 +67,8 @@ Status today (Proposed):
 | `svc-pay-bulk-orchestration` | `evt.pay.bulk` | `no-contract` | expected |
 
 Consent authorization and payee verification carry their own AsyncAPI file on the unmerged provider branch
-`claude/openfinance-deployable-ra36dq`; their catalog copies mirror it at `providerSpecCommit`. The payee copy replaces the
-provider's inline envelope and headers with `$ref`s to `common/event-envelope.yaml` (same fields, types and patterns). Every
-other `providerSpecPath` is `null`.
+`claude/openfinance-deployable-ra36dq`; their catalog copies are byte-identical to it at `providerSpecCommit`. Both
+providers reference a verbatim copy of `common/event-envelope.yaml`. Every other `providerSpecPath` is `null`.
 
 ## Checks
 

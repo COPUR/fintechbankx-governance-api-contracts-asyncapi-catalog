@@ -144,7 +144,7 @@
         "evt.of.consent.expired.v1"
       ],
       "providerSpecPath": "api/asyncapi/svc-of-consent-authorization.yaml",
-      "providerSpecCommit": "fdaf8e7",
+      "providerSpecCommit": "10d8035",
       "implementationStatus": "contract-only",
       "implementationNote": "Consent lifecycle events exist in the domain; the provider default branch has no outbox or publisher, so nothing reaches Kafka from it. Consumed by svc-of-personal-financial-data, svc-of-business-financial-data and svc-of-banking-metadata (consent projections).",
       "pendingImplementation": {
@@ -165,7 +165,7 @@
         "evt.of.payee.verification-completed.v1"
       ],
       "providerSpecPath": "api/asyncapi/svc-of-payee-verification.yaml",
-      "providerSpecCommit": "853e76e",
+      "providerSpecCommit": "c70e8d1",
       "implementationStatus": "contract-only",
       "implementationNote": "The provider default branch matches against a seeded in-memory directory and publishes nothing.",
       "pendingImplementation": {
