@@ -118,7 +118,7 @@ but does not publish that topic.
 
 ## Servers and authentication
 
-Every spec declares two servers, matching ADR-024 and the platform contract of 2026-10-08:
+Every spec declares two servers, matching ADR-024 (`docs/architecture/decisions/ADR-024-kafka-runtime-msk-iam-and-producer-defaults.md` in `fintechbankx-governance-architecture-enablement-adr-runbooks`, adr-runbooks PR #10 until it merges) and the platform contract of 2026-10-08:
 
 - `msk`: Amazon MSK on AWS. TLS in transit, SASL_SSL with mechanism `AWS_MSK_IAM` using the service's IRSA role; topic-scoped IAM
   policies come from the terraform module `msk-client-access`. AsyncAPI has no IAM scheme type, so the `mskIam` scheme uses
