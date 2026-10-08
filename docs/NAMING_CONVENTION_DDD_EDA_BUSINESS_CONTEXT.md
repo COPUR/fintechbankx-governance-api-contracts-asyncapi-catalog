@@ -206,6 +206,9 @@ Example:
 
 `evt.pay.payment.dlq.v1`
 
+`<context-code>.<aggregate>` is the namespace of the consuming service, not of the source topic: DLQs are
+consumer-owned (ADR-019). A loan consumer that fails on a payments event writes to `evt.ln.loan.dlq.v1`.
+
 ## Branch and Release Naming for New Repositories
 
 Default branches:
