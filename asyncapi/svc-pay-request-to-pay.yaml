@@ -1,6 +1,6 @@
 # AsyncAPI contract for svc-pay-request-to-pay.
 # Status: Proposed. The provider repository owns this contract; this catalog mirrors it.
-# Provider copy: fintechbankx-lendingpayments-payment-orchestration-request-to-pay api/asyncapi/svc-pay-request-to-pay.yaml (branch claude/lending-payments-deployable-zxfdi1).
+# Provider copy: fintechbankx-lendingpayments-payment-orchestration-request-to-pay api/asyncapi/svc-pay-request-to-pay.yaml (branch claude/lending-payments-deployable-zxfdi1, commit d6049d7).
 # Naming: docs/NAMING_CONVENTION_DDD_EDA_BUSINESS_CONTEXT.md
 # Validate: npx -y @asyncapi/cli@2.13.0 validate asyncapi/svc-pay-request-to-pay.yaml
 asyncapi: 3.0.0
@@ -13,11 +13,15 @@ info:
 
     Status: Proposed. Owner: Recurring and Bulk Payments Squad, Lending and Money Movement Tribe. Event namespace: `evt.pay.rtp`.
 
-    Implementation status: written by the transactional outbox (OutboxPayRequestEventPublisher, table sc_pay_request_to_pay.outbox_event) in the pay request's transaction and relayed by OutboxRelay (one active relay per cluster, per-aggregate order, max attempts then parked). The legacy topic rtp.pay_requests.v1 is no longer published: its publisher could not start (no runnable application, two competing notification beans), so no consumer ever received it and no dual-publish window is needed. Envelope shape is pinned by PayRequestEventEnvelopeFactoryTest.
+    Implementation status: written by the transactional outbox (OutboxPayRequestEventPublisher, table sc_pay_request_to_pay.outbox_event) in the pay request's transaction and relayed by OutboxRelay (one active relay per service, per-aggregate order). Relay failures follow ADR-021 decision 4: a payload error (RecordTooLarge, Serialization, InvalidTopic) parks the row and its aggregate's later events wait until an operator replays it; every other error stops the relay without marking anything and it retries with backoff. Consumers never see an aggregate's events out of order, but a parked event delays the later events of that pay request. The legacy topic rtp.pay_requests.v1 is no longer published: its publisher could not start (no runnable application, two competing notification beans), so no consumer ever received it and no dual-publish window is needed. Envelope shape is pinned by PayRequestEventEnvelopeFactoryTest.
 
     Every message uses the standard envelope (common/event-envelope.yaml). Record key is the aggregateId. Topics use cleanup.policy=delete. Adding an optional field is a minor change; any removal, rename or type change is a new major version on a new topic with dual-publish.
 
     Mapping notes: Source record fields eventId, aggregateId and occurredOn move to the envelope (eventId, aggregateId, occurredAt). The record field version is a schema version (always 1) and is carried by the eventType suffix, not by aggregateVersion.
+
+    Identifier note: aggregateId (the record key) is the pay request's id, published on the TPP API as Data.ConsentId under /open-finance/v1/payment-consents/{consentId} for monolith compatibility. It is a pay-request id local to evt.pay.rtp, minted by this service. It is not a consent of svc-of-consent-authorization (evt.of.consent): do not look it up there or correlate it with consent events.
+
+    Dead letters: this service consumes no topic, so it has no dead-letter topic. A consumer of evt.pay.rtp.* that gives up on a message writes it to its own <consumer namespace>.dlq.v1, declared in its own AsyncAPI (ADR-019, platform contract "Dead-letter topics").
   tags:
   - name: payments
   - name: evt.pay.rtp
@@ -31,6 +35,7 @@ servers:
     protocol: kafka-secure
     description: Amazon MSK cluster of the FinTechBankX event platform (svc-evt-streaming) on AWS. TLS in transit,
       SASL_SSL with mechanism AWS_MSK_IAM using the service's IRSA role (ADR-024, platform contract 2026-10-08).
+      Runtime profile kafka-msk.
     variables:
       bootstrapServers:
         description: MSK IAM bootstrap brokers (port 9098), injected per environment by the platform.
@@ -40,7 +45,7 @@ servers:
     host: '{bootstrapServers}'
     protocol: kafka-secure
     description: Strimzi cluster in namespace kafka, for local and non-AWS environments only. Mutual TLS with
-      Strimzi-issued client certificates.
+      Strimzi-issued client certificates. Runtime profile kafka-strimzi.
     variables:
       bootstrapServers:
         description: Strimzi TLS bootstrap service, injected per environment.
@@ -68,8 +73,9 @@ channels:
   accepted:
     address: evt.pay.rtp.accepted.v1
     title: evt.pay.rtp.accepted.v1
-    description: Payments.PayRequest.Accepted.v1. The debtor accepted the request and a payment was created (request
-      status CONSUMED).
+    description: Payments.PayRequest.Accepted.v1. The requesting TPP reported acceptance of the request with paymentId
+      X (request status CONSUMED). This service does not verify the debtor's authorisation or that payment X exists;
+      consumers must not treat this event as the debtor's consent or as proof of a payment.
     messages:
       PayRequestAccepted:
         $ref: '#/components/messages/PayRequestAccepted'
@@ -87,7 +93,7 @@ channels:
   rejected:
     address: evt.pay.rtp.rejected.v1
     title: evt.pay.rtp.rejected.v1
-    description: Payments.PayRequest.Rejected.v1. The debtor rejected the request.
+    description: Payments.PayRequest.Rejected.v1. The requesting TPP reported that the debtor declined the request.
     messages:
       PayRequestRejected:
         $ref: '#/components/messages/PayRequestRejected'
@@ -143,7 +149,14 @@ components:
       properties:
         creditorName:
           type: string
-          description: Creditor display name as entered in the request.
+          maxLength: 140
+          description: >-
+            Creditor display name as entered by the requesting TPP (free text, up to 140
+            characters). Data classification: confidential (payment party data; may name a
+            natural person when the creditor is a sole trader). Consumers must not log it and
+            keep it only as long as their own retention allows. Inclusion pending the data
+            owner's sign-off.
+          x-data-classification: confidential
         amount:
           allOf:
           - $ref: '#/components/schemas/DecimalAmount'
@@ -154,8 +167,12 @@ components:
           pattern: ^[A-Z]{3}$
         debtorId:
           type: string
-          description: Pseudonymous PSU id of the debtor.
-          minLength: 1
+          description: >-
+            Opaque PSU reference of the debtor, exactly as the requesting TPP sent it in
+            Data.PsuId (the customer_id format). It is not pseudonymised by this service; it
+            carries no personal data by format. Data classification: internal identifier.
+          pattern: ^[A-Za-z0-9-]{1,64}$
+          x-data-classification: internal
       required:
       - creditorName
       - amount
@@ -166,10 +183,9 @@ components:
       description: Payload of Payments.PayRequest.Accepted.v1.
       properties:
         paymentId:
-          type:
-          - string
-          - 'null'
-          description: Id of the resulting payment, if any.
+          type: string
+          minLength: 1
+          description: Payment id reported by the requesting TPP with the acceptance. Not verified by this service.
         amount:
           allOf:
           - $ref: '#/components/schemas/DecimalAmount'
@@ -180,12 +196,30 @@ components:
           pattern: ^[A-Z]{3}$
         creditorName:
           type: string
-          description: Creditor display name.
+          maxLength: 140
+          description: >-
+            Creditor display name. Data classification: confidential (see
+            PayRequestCreatedData.creditorName).
+          x-data-classification: confidential
         debtorId:
           type: string
-          description: Pseudonymous PSU id of the debtor.
-          minLength: 1
+          description: >-
+            Opaque PSU reference of the debtor, exactly as the requesting TPP sent it in
+            Data.PsuId (the customer_id format). It is not pseudonymised by this service; it
+            carries no personal data by format. Data classification: internal identifier.
+          pattern: ^[A-Za-z0-9-]{1,64}$
+          x-data-classification: internal
+        actorClientId:
+          type: string
+          description: Optional. OAuth2 client (azp) that made the decision; today always the TPP that created the
+            request.
+        reason:
+          type: string
+          maxLength: 256
+          description: Optional free text sent with the decision. Data classification confidential; do not log.
+          x-data-classification: confidential
       required:
+      - paymentId
       - amount
       - currency
       - creditorName
@@ -193,7 +227,16 @@ components:
     PayRequestRejectedData:
       type: object
       description: Payload of Payments.PayRequest.Rejected.v1.
-      properties: {}
+      properties:
+        actorClientId:
+          type: string
+          description: Optional. OAuth2 client (azp) that made the decision; today always the TPP that created the
+            request.
+        reason:
+          type: string
+          maxLength: 256
+          description: Optional free text sent with the decision. Data classification confidential; do not log.
+          x-data-classification: confidential
   messages:
     PayRequestCreated:
       name: PayRequestCreated
@@ -217,13 +260,15 @@ components:
         kafka:
           key:
             type: string
-            description: aggregateId (consentId of the pay request).
+            description: aggregateId, the pay request id (Data.ConsentId on the TPP API; local to evt.pay.rtp, not a
+              consent-authorization consent).
           bindingVersion: 0.5.0
       x-source-class: com.enterprise.openfinance.requesttopay.domain.event.PayRequestCreatedEvent
     PayRequestAccepted:
       name: PayRequestAccepted
       title: Payments.PayRequest.Accepted.v1
-      summary: The debtor accepted the request and a payment was created (request status CONSUMED).
+      summary: The requesting TPP reported acceptance with paymentId X (request status CONSUMED); not verified by this
+        service.
       contentType: application/json
       headers:
         $ref: '#/components/schemas/EventHeaders'
@@ -242,13 +287,14 @@ components:
         kafka:
           key:
             type: string
-            description: aggregateId (consentId of the pay request).
+            description: aggregateId, the pay request id (Data.ConsentId on the TPP API; local to evt.pay.rtp, not a
+              consent-authorization consent).
           bindingVersion: 0.5.0
       x-source-class: com.enterprise.openfinance.requesttopay.domain.event.PayRequestAcceptedEvent
     PayRequestRejected:
       name: PayRequestRejected
       title: Payments.PayRequest.Rejected.v1
-      summary: The debtor rejected the request.
+      summary: The requesting TPP reported that the debtor declined the request.
       contentType: application/json
       headers:
         $ref: '#/components/schemas/EventHeaders'
@@ -267,7 +313,8 @@ components:
         kafka:
           key:
             type: string
-            description: aggregateId (consentId of the pay request).
+            description: aggregateId, the pay request id (Data.ConsentId on the TPP API; local to evt.pay.rtp, not a
+              consent-authorization consent).
           bindingVersion: 0.5.0
       x-source-class: com.enterprise.openfinance.requesttopay.domain.event.PayRequestRejectedEvent
   securitySchemes:

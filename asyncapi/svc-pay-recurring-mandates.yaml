@@ -1,6 +1,6 @@
 # AsyncAPI contract for svc-pay-recurring-mandates.
 # Status: Proposed. The provider repository owns this contract; this catalog mirrors it.
-# Provider copy: fintechbankx-lendingpayments-payment-orchestration-recurring-mandates api/asyncapi/svc-pay-recurring-mandates.yaml (branch claude/lending-payments-deployable-zxfdi1).
+# Provider copy: fintechbankx-lendingpayments-payment-orchestration-recurring-mandates api/asyncapi/svc-pay-recurring-mandates.yaml (branch claude/lending-payments-deployable-zxfdi1, commit e608975).
 # Naming: docs/NAMING_CONVENTION_DDD_EDA_BUSINESS_CONTEXT.md
 # Validate: npx -y @asyncapi/cli@2.13.0 validate asyncapi/svc-pay-recurring-mandates.yaml
 asyncapi: 3.0.0
@@ -162,7 +162,7 @@ components:
           allOf:
           - &id001
             $ref: '#/components/schemas/MonetaryAmount'
-          description: Maximum accepted total per UTC calendar month.
+          description: Maximum accepted total per calendar month in Asia/Dubai (mandates.limit-period-zone).
         periodType:
           type: string
           const: Month
@@ -224,7 +224,7 @@ components:
         periodKey:
           type: string
           pattern: ^[0-9]{4}-[0-9]{2}$
-          description: UTC calendar month (YYYY-MM).
+          description: Calendar month (YYYY-MM) in Asia/Dubai unless mandates.limit-period-zone says otherwise.
         periodTotal:
           allOf:
           - *id001
