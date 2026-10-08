@@ -8,18 +8,23 @@ standard envelope in [`common/event-envelope.yaml`](common/event-envelope.yaml):
 record key is `aggregateId`. Naming follows
 [`NAMING_CONVENTION_DDD_EDA_BUSINESS_CONTEXT.md`](../docs/NAMING_CONVENTION_DDD_EDA_BUSINESS_CONTEXT.md).
 
-| Contract | Service | Namespace | Topics | Implementation today |
+| Contract | Service | Topic (one per aggregate) | Event types (`eventType` header) | Implementation today |
 |---|---|---|---|---|
-| [svc-ln-loan-lifecycle.yaml](svc-ln-loan-lifecycle.yaml) | Loan lifecycle | `evt.ln.loan` | `created`, `approved`, `rejected`, `disbursed`, `cancelled`, `payment-made`, `fully-paid` | Domain events raised; no publisher adapter |
-| [svc-pay-initiation-settlement.yaml](svc-pay-initiation-settlement.yaml) | Payment initiation and settlement | `evt.pay.payment` | `created`, `processing-started`, `completed`, `failed`, `cancelled`, `refunded`, `loan-payment-created`, `loan-payment-completed`, `loan-payment-failed` | Domain events raised; no publisher adapter |
-| [svc-pay-request-to-pay.yaml](svc-pay-request-to-pay.yaml) | Request to pay | `evt.pay.rtp` | `created`, `accepted`, `rejected` | Published to legacy `rtp.pay_requests.v1` without envelope |
-| [svc-cus-profile-kyc.yaml](svc-cus-profile-kyc.yaml) | Customer profile and KYC | `evt.cus.customer` | `created`, `contact-updated`, `credit-limit-updated`, `credit-reserved`, `credit-released`, `credit-score-updated` | Published after save via an external `DomainEventPublisher`; no outbox |
+| [svc-ln-loan-lifecycle.yaml](svc-ln-loan-lifecycle.yaml) | Loan lifecycle | `evt.ln.loan.v1` | `Lending.Loan.*.v1`: Created, Approved, Rejected, Disbursed, Cancelled, PaymentMade, FullyPaid | Domain events raised; no publisher adapter |
+| [svc-pay-initiation-settlement.yaml](svc-pay-initiation-settlement.yaml) | Payment initiation and settlement | `evt.pay.payment.v1` | nine payment and loan-payment event types (see the spec) | Domain events raised; no publisher adapter |
+| [svc-pay-request-to-pay.yaml](svc-pay-request-to-pay.yaml) | Request to pay | `evt.pay.rtp.v1` | `Payments.PayRequest.*.v1`: Created, Accepted, Rejected | Published to legacy `rtp.pay_requests.v1` without envelope |
+| [svc-cus-profile-kyc.yaml](svc-cus-profile-kyc.yaml) | Customer profile and KYC | `evt.cus.customer.v1` | six customer event types (see the spec) | Published after save via an external `DomainEventPublisher`; no outbox |
 
-Full topic names are `<namespace>.<event>.v1`. A namespace whose service consumes a topic also has a dead-letter topic `<namespace>.dlq.v1`.
+One topic per aggregate (ADR-019, owner decision 2026-10-08): every event of a namespace's aggregate goes to
+`<namespace>.v<N>`, keyed by the aggregate id, so one aggregate instance's events stay in order in one partition.
+In a spec that is one channel holding every event type of the aggregate as a message. Each message fixes its
+`eventType` with a `const` in the payload and declares the same `const` for the `eventType` record header
+(`EventHeaders`); the catalog check enforces both and rejects per-event topics. Consumers skip event types they
+do not handle. A namespace whose service consumes a topic also has a dead-letter topic `<namespace>.dlq.v1`.
 
 Dead-letter topics are consumer-owned (ADR-019 in the ADR repo): a consumer that gives up on a record after bounded
 retries writes it to the DLQ in **its own** namespace, never to the source topic's namespace. For example, the loan
-service dead-letters a failed `evt.pay.payment.completed.v1` record to `evt.ln.loan.dlq.v1`, not to
+service dead-letters a failed `evt.pay.payment.v1` record to `evt.ln.loan.dlq.v1`, not to
 `evt.pay.payment.dlq.v1`. The `DeadLetterHeaders` in [common/event-envelope.yaml](common/event-envelope.yaml)
 (`dlq-original-topic`, `dlq-original-partition`, `dlq-original-offset`, `dlq-consumer-group`) identify the source,
 so the owning team can replay it. Every dead-letter header value is UTF-8 text, numbers as decimal text, because
@@ -106,19 +111,21 @@ npx -y @asyncapi/cli@2.13.0 validate asyncapi/<service-id>.yaml
 ## Consumers
 
 A spec may declare channels it only consumes (every operation on the channel has `action: receive`), for example
-`svc-ln-loan-lifecycle` consuming `evt.pay.payment.loan-payment-completed.v1` with group
+`svc-ln-loan-lifecycle` consuming `evt.pay.payment.v1` (handling only the loan-payment event types) with group
 `cg.svc-ln-loan-lifecycle.loan-repayment-allocation.v1`. Such channels may sit in another namespace, are listed in the
 index entry's `consumes` array (not in `channels`), and the check fails if the owning namespace's spec is in the catalog
 but does not publish that topic.
 
 ## Change rules
 
-- Adding an optional field is a minor change: bump `info.version` minor.
-- Removing or renaming a field, changing a type or changing meaning is a new major version on a new topic
-  (`...v2`); the producer dual-publishes until every consumer has moved.
+- Adding an optional field or a new event type is a minor change: bump `info.version` minor.
+- Removing or renaming a field, changing a type or changing meaning of one event is a new event major on the same
+  topic (a new message with `eventType` `...v2`); the producer publishes both majors until every consumer has moved.
+- The topic major (`<namespace>.v2`) changes only when the record key, partition count or cleanup policy changes;
+  the producer then dual-publishes to both topics.
 - Versions count from the first time a spec lands on this catalog's `main`. Before that the spec is pre-release:
   it stays `1.0.0`, carries no version-history paragraph, and a change that would be breaking later is folded
-  into `1.0.0` (no `accepted-breaking.txt` entry, no `.v2` topic). A pre-release spec has no consumers by
+  into `1.0.0` (no `accepted-breaking.txt` entry, no new event major). A pre-release spec has no consumers by
   definition, because consumers build against the catalog's `main`.
 - Change the contract in the provider repository first, then mirror it here in a separate PR, updating
   `catalog/index.json` in the same PR.

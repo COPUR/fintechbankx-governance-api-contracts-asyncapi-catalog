@@ -9,9 +9,11 @@
 //   - an index entry is malformed (service id, owner repo, namespace, status, file name);
 //   - two index entries share a serviceId, file or namespace;
 //   - a spec's info.x-service-id / info.x-event-namespace differ from its index entry;
-//   - a channel address does not match ^evt\.[a-z]+\.[a-z0-9-]+\.[a-z0-9-]+\.v[0-9]+$
-//     (dead-letter topics <namespace>.dlq.v<N> match the same pattern; DLQs are
-//     consumer-owned, so they sit in the spec's own namespace, ADR-019);
+//   - a channel address is not an aggregate topic <namespace>.v<N> (one topic per aggregate, ADR-019) or a
+//     dead-letter topic <namespace>.dlq.v<N> (DLQs are consumer-owned, so they sit in the spec's own namespace);
+//     per-event topics <namespace>.<event>.v<N> are rejected;
+//   - a message on an aggregate topic does not fix its eventType with a payload const, its headers do not declare
+//     the same eventType const (the eventType record header), or two messages of one channel share an eventType;
 //   - a channel address is outside the spec's namespace, or its Kafka binding topic differs from the address;
 //   - the index channel list differs from the spec's channel addresses;
 //   - a message payload does not use the common envelope ($ref to common/event-envelope.yaml#/EventEnvelope);
@@ -27,7 +29,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import {
-  TOPIC_RE, NAMESPACE_RE, loadYaml, usesEnvelope, usesDeadLetterHeaders, DLQ_ADDRESS_RE, createResolver, listChannels,
+  TOPIC_RE, NAMESPACE_RE, loadYaml, usesEnvelope, usesDeadLetterHeaders, DLQ_ADDRESS_RE, createResolver, listChannels, flattenPayload,
 } from './lib/asyncapi-model.mjs';
 
 export const STATUSES = ['contract-only', 'publishes-legacy', 'outbox', 'no-contract'];
@@ -158,7 +160,7 @@ export function checkCatalog(root) {
       }
       addresses.push(addr);
       if (!TOPIC_RE.test(addr)) {
-        err(`${where}: address ${addr} does not match ${TOPIC_RE} (dead-letter: <namespace>.dlq.v<N>)`);
+        err(`${where}: address ${addr} does not match ${TOPIC_RE}: one topic per aggregate <namespace>.v<N> (ADR-019; per-event topics are not used), dead-letter <namespace>.dlq.v<N>`);
       } else if (addr.split('.').slice(0, 3).join('.') !== ns) {
         err(`${where}: address ${addr} is outside the service namespace ${ns}`);
       }
@@ -175,6 +177,7 @@ export function checkCatalog(root) {
       }
       if (ch.messages.length === 0) err(`${where}: channel declares no messages`);
       const deadLetter = DLQ_ADDRESS_RE.test(addr ?? '');
+      const eventTypes = new Map();
       for (const m of ch.messages) {
         if (deadLetter) {
           // A dead-letter record keeps the poison record's value unchanged, which may not even parse as an
@@ -184,6 +187,27 @@ export function checkCatalog(root) {
           }
         } else if (!usesEnvelope(m.message?.payload, doc)) {
           err(`${where} message ${m.key}: payload does not use the common envelope ($ref to common/event-envelope.yaml#/EventEnvelope)`);
+        }
+        if (!deadLetter) {
+          const where2 = `${where} message ${m.key}`;
+          let payloadType;
+          let headerType;
+          try {
+            payloadType = m.message?.payload ? flattenPayload(m.message.payload, m.ctx, resolver).get('$.eventType')?.const : undefined;
+            headerType = m.message?.headers ? flattenPayload(m.message.headers, m.ctx, resolver).get('$.eventType')?.const : undefined;
+          } catch (e) {
+            err(`${where2}: ${e.message}`);
+            continue;
+          }
+          if (payloadType === undefined) {
+            err(`${where2}: payload must fix eventType with a const (the event type names the event on an aggregate topic, ADR-019)`);
+          } else if (headerType !== payloadType) {
+            err(`${where2}: headers must declare the eventType record header with the same const as the payload (${payloadType}), got ${headerType}`);
+          } else if (eventTypes.has(payloadType)) {
+            err(`${where2}: eventType ${payloadType} is also carried by message ${eventTypes.get(payloadType)} of this channel`);
+          } else {
+            eventTypes.set(payloadType, m.key);
+          }
         }
       }
     }

@@ -10,7 +10,8 @@
 import path from 'node:path';
 import { parse } from 'yaml';
 
-export const TOPIC_RE = /^evt\.[a-z]+\.[a-z0-9-]+\.[a-z0-9-]+\.v[0-9]+$/;
+// One topic per aggregate (ADR-019): evt.<ctx>.<aggregate>.v<N>; consumer-owned dead-letter topics add .dlq.
+export const TOPIC_RE = /^evt\.[a-z]+\.[a-z0-9-]+(\.dlq)?\.v[0-9]+$/;
 export const NAMESPACE_RE = /^evt\.[a-z]+\.[a-z0-9-]+$/;
 export const ENVELOPE_REF_RE = /(^|\/)common\/event-envelope\.yaml#\/EventEnvelope$/;
 export const DEAD_LETTER_HEADERS_REF_RE = /(^|\/)common\/event-envelope\.yaml#\/DeadLetterHeaders$/;

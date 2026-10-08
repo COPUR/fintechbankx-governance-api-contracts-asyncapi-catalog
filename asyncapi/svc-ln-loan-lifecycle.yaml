@@ -14,7 +14,7 @@ info:
 
     Implementation status: Contract only. Events are raised on the Loan aggregate (loan-domain Loan.java) but the repository has no publisher adapter or outbox yet.
 
-    Every message uses the standard envelope (common/event-envelope.yaml). Record key is the aggregateId. Topics use cleanup.policy=delete. Adding an optional field is a minor change; any removal, rename or type change is a new major version on a new topic with dual-publish.
+    Every message uses the standard envelope (common/event-envelope.yaml). All events go to one topic per aggregate, `evt.ln.loan.v1`, with the record key = aggregateId and the eventType, eventId and correlationId record headers (ADR-019). The topic uses cleanup.policy=delete. Adding an optional field or a new event type is a minor change; a removal, rename or type change in one event is a new event major (eventType ...v2) published on the same topic alongside the old one until consumers move.
   tags:
   - name: lending
   - name: evt.ln.loan
@@ -26,8 +26,8 @@ servers:
   msk:
     host: '{bootstrapServers}'
     protocol: kafka-secure
-    description: Amazon MSK cluster of the FinTechBankX event platform (svc-evt-streaming) on AWS. TLS in transit,
-      SASL_SSL with mechanism AWS_MSK_IAM using the service's IRSA role (ADR-024, platform contract 2026-10-08).
+    description: Amazon MSK cluster of the FinTechBankX event platform (svc-evt-streaming) on AWS. TLS in transit, SASL_SSL
+      with mechanism AWS_MSK_IAM using the service's IRSA role (ADR-024, platform contract 2026-10-08).
     variables:
       bootstrapServers:
         description: MSK IAM bootstrap brokers (port 9098), injected per environment by the platform.
@@ -36,132 +36,40 @@ servers:
   local:
     host: '{bootstrapServers}'
     protocol: kafka-secure
-    description: Strimzi cluster in namespace kafka, for local and non-AWS environments only. Mutual TLS with
-      Strimzi-issued client certificates.
+    description: Strimzi cluster in namespace kafka, for local and non-AWS environments only. Mutual TLS with Strimzi-issued
+      client certificates.
     variables:
       bootstrapServers:
         description: Strimzi TLS bootstrap service, injected per environment.
     security:
     - $ref: '#/components/securitySchemes/mtls'
 channels:
-  created:
-    address: evt.ln.loan.created.v1
-    title: evt.ln.loan.created.v1
-    description: Lending.Loan.Created.v1. A loan application was created.
+  loan:
+    address: evt.ln.loan.v1
+    title: evt.ln.loan.v1
+    description: 'Every event of the loan aggregate, keyed by aggregateId so that the events of one aggregate instance stay
+      in order in one partition (ADR-019, one topic per aggregate). The eventType record header names the event:
+      Lending.Loan.Created.v1, Lending.Loan.Approved.v1, Lending.Loan.Rejected.v1, Lending.Loan.Disbursed.v1,
+      Lending.Loan.Cancelled.v1, Lending.Loan.PaymentMade.v1, Lending.Loan.FullyPaid.v1. Consumers skip event types they
+      do not handle.'
     messages:
       LoanCreated:
         $ref: '#/components/messages/LoanCreated'
-    bindings:
-      kafka:
-        topic: evt.ln.loan.created.v1
-        partitions: 3
-        replicas: 3
-        topicConfiguration:
-          cleanup.policy:
-          - delete
-          retention.ms: 604800000
-          max.message.bytes: 1048576
-        bindingVersion: 0.5.0
-  approved:
-    address: evt.ln.loan.approved.v1
-    title: evt.ln.loan.approved.v1
-    description: Lending.Loan.Approved.v1. The loan was approved.
-    messages:
       LoanApproved:
         $ref: '#/components/messages/LoanApproved'
-    bindings:
-      kafka:
-        topic: evt.ln.loan.approved.v1
-        partitions: 3
-        replicas: 3
-        topicConfiguration:
-          cleanup.policy:
-          - delete
-          retention.ms: 604800000
-          max.message.bytes: 1048576
-        bindingVersion: 0.5.0
-  rejected:
-    address: evt.ln.loan.rejected.v1
-    title: evt.ln.loan.rejected.v1
-    description: Lending.Loan.Rejected.v1. The loan was rejected.
-    messages:
       LoanRejected:
         $ref: '#/components/messages/LoanRejected'
-    bindings:
-      kafka:
-        topic: evt.ln.loan.rejected.v1
-        partitions: 3
-        replicas: 3
-        topicConfiguration:
-          cleanup.policy:
-          - delete
-          retention.ms: 604800000
-          max.message.bytes: 1048576
-        bindingVersion: 0.5.0
-  disbursed:
-    address: evt.ln.loan.disbursed.v1
-    title: evt.ln.loan.disbursed.v1
-    description: Lending.Loan.Disbursed.v1. The loan principal was disbursed.
-    messages:
       LoanDisbursed:
         $ref: '#/components/messages/LoanDisbursed'
-    bindings:
-      kafka:
-        topic: evt.ln.loan.disbursed.v1
-        partitions: 3
-        replicas: 3
-        topicConfiguration:
-          cleanup.policy:
-          - delete
-          retention.ms: 604800000
-          max.message.bytes: 1048576
-        bindingVersion: 0.5.0
-  cancelled:
-    address: evt.ln.loan.cancelled.v1
-    title: evt.ln.loan.cancelled.v1
-    description: Lending.Loan.Cancelled.v1. The loan was cancelled.
-    messages:
       LoanCancelled:
         $ref: '#/components/messages/LoanCancelled'
-    bindings:
-      kafka:
-        topic: evt.ln.loan.cancelled.v1
-        partitions: 3
-        replicas: 3
-        topicConfiguration:
-          cleanup.policy:
-          - delete
-          retention.ms: 604800000
-          max.message.bytes: 1048576
-        bindingVersion: 0.5.0
-  paymentMade:
-    address: evt.ln.loan.payment-made.v1
-    title: evt.ln.loan.payment-made.v1
-    description: Lending.Loan.PaymentMade.v1. A repayment was applied to the loan balance.
-    messages:
       LoanPaymentMade:
         $ref: '#/components/messages/LoanPaymentMade'
-    bindings:
-      kafka:
-        topic: evt.ln.loan.payment-made.v1
-        partitions: 3
-        replicas: 3
-        topicConfiguration:
-          cleanup.policy:
-          - delete
-          retention.ms: 604800000
-          max.message.bytes: 1048576
-        bindingVersion: 0.5.0
-  fullyPaid:
-    address: evt.ln.loan.fully-paid.v1
-    title: evt.ln.loan.fully-paid.v1
-    description: Lending.Loan.FullyPaid.v1. The loan balance reached zero.
-    messages:
       LoanFullyPaid:
         $ref: '#/components/messages/LoanFullyPaid'
     bindings:
       kafka:
-        topic: evt.ln.loan.fully-paid.v1
+        topic: evt.ln.loan.v1
         partitions: 3
         replicas: 3
         topicConfiguration:
@@ -176,57 +84,57 @@ operations:
     title: Publish Lending.Loan.Created.v1
     summary: svc-ln-loan-lifecycle publishes Lending.Loan.Created.v1 through its transactional outbox.
     channel:
-      $ref: '#/channels/created'
+      $ref: '#/channels/loan'
     messages:
-    - $ref: '#/channels/created/messages/LoanCreated'
+    - $ref: '#/channels/loan/messages/LoanCreated'
   publishLoanApproved:
     action: send
     title: Publish Lending.Loan.Approved.v1
     summary: svc-ln-loan-lifecycle publishes Lending.Loan.Approved.v1 through its transactional outbox.
     channel:
-      $ref: '#/channels/approved'
+      $ref: '#/channels/loan'
     messages:
-    - $ref: '#/channels/approved/messages/LoanApproved'
+    - $ref: '#/channels/loan/messages/LoanApproved'
   publishLoanRejected:
     action: send
     title: Publish Lending.Loan.Rejected.v1
     summary: svc-ln-loan-lifecycle publishes Lending.Loan.Rejected.v1 through its transactional outbox.
     channel:
-      $ref: '#/channels/rejected'
+      $ref: '#/channels/loan'
     messages:
-    - $ref: '#/channels/rejected/messages/LoanRejected'
+    - $ref: '#/channels/loan/messages/LoanRejected'
   publishLoanDisbursed:
     action: send
     title: Publish Lending.Loan.Disbursed.v1
     summary: svc-ln-loan-lifecycle publishes Lending.Loan.Disbursed.v1 through its transactional outbox.
     channel:
-      $ref: '#/channels/disbursed'
+      $ref: '#/channels/loan'
     messages:
-    - $ref: '#/channels/disbursed/messages/LoanDisbursed'
+    - $ref: '#/channels/loan/messages/LoanDisbursed'
   publishLoanCancelled:
     action: send
     title: Publish Lending.Loan.Cancelled.v1
     summary: svc-ln-loan-lifecycle publishes Lending.Loan.Cancelled.v1 through its transactional outbox.
     channel:
-      $ref: '#/channels/cancelled'
+      $ref: '#/channels/loan'
     messages:
-    - $ref: '#/channels/cancelled/messages/LoanCancelled'
+    - $ref: '#/channels/loan/messages/LoanCancelled'
   publishLoanPaymentMade:
     action: send
     title: Publish Lending.Loan.PaymentMade.v1
     summary: svc-ln-loan-lifecycle publishes Lending.Loan.PaymentMade.v1 through its transactional outbox.
     channel:
-      $ref: '#/channels/paymentMade'
+      $ref: '#/channels/loan'
     messages:
-    - $ref: '#/channels/paymentMade/messages/LoanPaymentMade'
+    - $ref: '#/channels/loan/messages/LoanPaymentMade'
   publishLoanFullyPaid:
     action: send
     title: Publish Lending.Loan.FullyPaid.v1
     summary: svc-ln-loan-lifecycle publishes Lending.Loan.FullyPaid.v1 through its transactional outbox.
     channel:
-      $ref: '#/channels/fullyPaid'
+      $ref: '#/channels/loan'
     messages:
-    - $ref: '#/channels/fullyPaid/messages/LoanFullyPaid'
+    - $ref: '#/channels/loan/messages/LoanFullyPaid'
 components:
   schemas:
     EventEnvelope:
@@ -394,7 +302,12 @@ components:
       summary: A loan application was created.
       contentType: application/json
       headers:
-        $ref: '#/components/schemas/EventHeaders'
+        allOf:
+        - $ref: '#/components/schemas/EventHeaders'
+        - type: object
+          properties:
+            eventType:
+              const: Lending.Loan.Created.v1
       payload:
         allOf:
         - $ref: '#/components/schemas/EventEnvelope'
@@ -419,7 +332,12 @@ components:
       summary: The loan was approved.
       contentType: application/json
       headers:
-        $ref: '#/components/schemas/EventHeaders'
+        allOf:
+        - $ref: '#/components/schemas/EventHeaders'
+        - type: object
+          properties:
+            eventType:
+              const: Lending.Loan.Approved.v1
       payload:
         allOf:
         - $ref: '#/components/schemas/EventEnvelope'
@@ -444,7 +362,12 @@ components:
       summary: The loan was rejected.
       contentType: application/json
       headers:
-        $ref: '#/components/schemas/EventHeaders'
+        allOf:
+        - $ref: '#/components/schemas/EventHeaders'
+        - type: object
+          properties:
+            eventType:
+              const: Lending.Loan.Rejected.v1
       payload:
         allOf:
         - $ref: '#/components/schemas/EventEnvelope'
@@ -469,7 +392,12 @@ components:
       summary: The loan principal was disbursed.
       contentType: application/json
       headers:
-        $ref: '#/components/schemas/EventHeaders'
+        allOf:
+        - $ref: '#/components/schemas/EventHeaders'
+        - type: object
+          properties:
+            eventType:
+              const: Lending.Loan.Disbursed.v1
       payload:
         allOf:
         - $ref: '#/components/schemas/EventEnvelope'
@@ -494,7 +422,12 @@ components:
       summary: The loan was cancelled.
       contentType: application/json
       headers:
-        $ref: '#/components/schemas/EventHeaders'
+        allOf:
+        - $ref: '#/components/schemas/EventHeaders'
+        - type: object
+          properties:
+            eventType:
+              const: Lending.Loan.Cancelled.v1
       payload:
         allOf:
         - $ref: '#/components/schemas/EventEnvelope'
@@ -519,7 +452,12 @@ components:
       summary: A repayment was applied to the loan balance.
       contentType: application/json
       headers:
-        $ref: '#/components/schemas/EventHeaders'
+        allOf:
+        - $ref: '#/components/schemas/EventHeaders'
+        - type: object
+          properties:
+            eventType:
+              const: Lending.Loan.PaymentMade.v1
       payload:
         allOf:
         - $ref: '#/components/schemas/EventEnvelope'
@@ -544,7 +482,12 @@ components:
       summary: The loan balance reached zero.
       contentType: application/json
       headers:
-        $ref: '#/components/schemas/EventHeaders'
+        allOf:
+        - $ref: '#/components/schemas/EventHeaders'
+        - type: object
+          properties:
+            eventType:
+              const: Lending.Loan.FullyPaid.v1
       payload:
         allOf:
         - $ref: '#/components/schemas/EventEnvelope'
@@ -581,9 +524,9 @@ components:
   securitySchemes:
     mskIam:
       type: userPassword
-      description: SASL_SSL with SASL mechanism AWS_MSK_IAM. There is no user or password; the client signs with the
-        AWS credentials of its IRSA role, and a topic-scoped IAM policy (terraform module msk-client-access) grants
-        produce or consume rights. AsyncAPI has no IAM scheme type, so userPassword stands for the SASL family.
+      description: SASL_SSL with SASL mechanism AWS_MSK_IAM. There is no user or password; the client signs with the AWS
+        credentials of its IRSA role, and a topic-scoped IAM policy (terraform module msk-client-access) grants produce
+        or consume rights. AsyncAPI has no IAM scheme type, so userPassword stands for the SASL family.
       x-sasl-mechanism: AWS_MSK_IAM
     mtls:
       type: X509

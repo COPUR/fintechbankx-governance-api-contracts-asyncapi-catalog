@@ -14,6 +14,11 @@ export const ENVELOPE = {
       data: { type: 'object' },
     },
   },
+  EventHeaders: {
+    type: 'object',
+    required: ['eventType', 'eventId'],
+    properties: { eventType: { type: 'string' }, eventId: { type: 'string' } },
+  },
 };
 
 export function spec({ serviceId = 'svc-tst-sample', namespace = 'evt.tst.sample', channels, data } = {}) {
@@ -28,9 +33,9 @@ export function spec({ serviceId = 'svc-tst-sample', namespace = 'evt.tst.sample
   };
   const chans = channels ?? {
     created: {
-      address: `${namespace}.created.v1`,
+      address: `${namespace}.v1`,
       messages: { SampleCreated: { $ref: '#/components/messages/SampleCreated' } },
-      bindings: { kafka: { topic: `${namespace}.created.v1` } },
+      bindings: { kafka: { topic: `${namespace}.v1` } },
     },
   };
   return {
@@ -44,10 +49,19 @@ export function spec({ serviceId = 'svc-tst-sample', namespace = 'evt.tst.sample
       },
       messages: {
         SampleCreated: {
+          headers: {
+            allOf: [
+              { $ref: './common/event-envelope.yaml#/EventHeaders' },
+              { type: 'object', properties: { eventType: { const: 'Test.Sample.Created.v1' } } },
+            ],
+          },
           payload: {
             allOf: [
               { $ref: '#/components/schemas/EventEnvelope' },
-              { type: 'object', properties: { data: { $ref: '#/components/schemas/SampleCreatedData' } } },
+              {
+                type: 'object',
+                properties: { eventType: { const: 'Test.Sample.Created.v1' }, data: { $ref: '#/components/schemas/SampleCreatedData' } },
+              },
             ],
           },
         },
@@ -72,7 +86,7 @@ export function entry(overrides = {}) {
     serviceId: 'svc-tst-sample',
     ownerRepo: 'COPUR/fintechbankx-test-sample',
     namespace: 'evt.tst.sample',
-    channels: ['evt.tst.sample.created.v1'],
+    channels: ['evt.tst.sample.v1'],
     providerSpecPath: null,
     implementationStatus: 'contract-only',
     ...overrides,
