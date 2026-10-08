@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { checkCatalog } from '../check-asyncapi-catalog.mjs';
-import { spec, entry, writeCatalog } from './fixtures.mjs';
+import { spec, deadLetterChannel, entry, writeCatalog } from './fixtures.mjs';
 
 const errorsOf = (opts) => checkCatalog(writeCatalog(opts)).errors;
 const expectError = (opts, re) => {
@@ -67,7 +67,7 @@ test('fails when two specs declare the same topic', () => {
 });
 
 test('fails when index channels differ from the spec', () => {
-  expectError({ services: [entry({ channels: ['evt.tst.sample.created.v1'] })] }, /index channels differ from spec/);
+  expectError({ services: [entry({ channels: ['evt.tst.sample.other.v1'] })] }, /index channels differ from spec/);
 });
 
 test('fails on duplicate namespaces in the index', () => {
@@ -93,7 +93,7 @@ function consumerSpec(addr) {
   };
   return doc;
 }
-const provider = () => entry({ serviceId: 'svc-tst-provider', file: 'asyncapi/svc-tst-provider.yaml', namespace: 'evt.tst.provider', channels: ['evt.tst.provider.created.v1', 'evt.tst.provider.dlq.v1'] });
+const provider = () => entry({ serviceId: 'svc-tst-provider', file: 'asyncapi/svc-tst-provider.yaml', namespace: 'evt.tst.provider', channels: ['evt.tst.provider.created.v1'] });
 
 test('a receive-only channel in another namespace passes when listed in consumes', () => {
   const specs = {
@@ -128,4 +128,18 @@ test('fails when a spec consumes another namespace\'s dead-letter topic (DLQs ar
     'svc-tst-provider.yaml': spec({ serviceId: 'svc-tst-provider', namespace: 'evt.tst.provider' }),
   };
   expectError({ specs, services: [entry({ consumes: ['evt.tst.provider.dlq.v1'] }), provider()] }, /dead-letter topic of another namespace/);
+});
+
+test('fails when a spec declares its dead-letter topic but consumes nothing (DLQs are consumer-owned)', () => {
+  const doc = spec();
+  doc.channels.deadLetter = deadLetterChannel();
+  expectError({ specs: { 'svc-tst-sample.yaml': doc }, services: [entry({ channels: ['evt.tst.sample.created.v1', 'evt.tst.sample.dlq.v1'] })] }, /dead-letter topic .* but consumes nothing/);
+});
+
+test('a dead-letter topic is allowed when the spec consumes a topic', () => {
+  const doc = consumerSpec('evt.tst.provider.created.v1');
+  doc.channels.deadLetter = deadLetterChannel();
+  doc.operations.publishDeadLetter = { action: 'send', channel: { $ref: '#/channels/deadLetter' } };
+  const specs = { 'svc-tst-sample.yaml': doc, 'svc-tst-provider.yaml': spec({ serviceId: 'svc-tst-provider', namespace: 'evt.tst.provider' }) };
+  assert.deepEqual(errorsOf({ specs, services: [entry({ channels: ['evt.tst.sample.created.v1', 'evt.tst.sample.dlq.v1'], consumes: ['evt.tst.provider.created.v1'] }), provider()] }), []);
 });

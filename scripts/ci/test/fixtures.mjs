@@ -32,10 +32,6 @@ export function spec({ serviceId = 'svc-tst-sample', namespace = 'evt.tst.sample
       messages: { SampleCreated: { $ref: '#/components/messages/SampleCreated' } },
       bindings: { kafka: { topic: `${namespace}.created.v1` } },
     },
-    deadLetter: {
-      address: `${namespace}.dlq.v1`,
-      messages: { DeadLetter: { $ref: '#/components/messages/DeadLetter' } },
-    },
   };
   return {
     asyncapi: '3.0.0',
@@ -61,13 +57,19 @@ export function spec({ serviceId = 'svc-tst-sample', namespace = 'evt.tst.sample
   };
 }
 
+/** A dead-letter channel in the spec's own namespace (only valid when the spec consumes something). */
+export const deadLetterChannel = (namespace = 'evt.tst.sample') => ({
+  address: `${namespace}.dlq.v1`,
+  messages: { DeadLetter: { $ref: '#/components/messages/DeadLetter' } },
+});
+
 export function entry(overrides = {}) {
   return {
     file: 'asyncapi/svc-tst-sample.yaml',
     serviceId: 'svc-tst-sample',
     ownerRepo: 'COPUR/fintechbankx-test-sample',
     namespace: 'evt.tst.sample',
-    channels: ['evt.tst.sample.created.v1', 'evt.tst.sample.dlq.v1'],
+    channels: ['evt.tst.sample.created.v1'],
     providerSpecPath: null,
     implementationStatus: 'contract-only',
     ...overrides,

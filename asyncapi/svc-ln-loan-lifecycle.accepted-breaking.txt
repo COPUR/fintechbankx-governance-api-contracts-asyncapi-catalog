@@ -6,3 +6,5 @@
 changed-type evt.ln.loan.rejected.v1 LoanRejected $.data.reason   # reason is optional and nullable in the provider
 changed-type evt.ln.loan.cancelled.v1 LoanCancelled $.data.reason # reason is optional and nullable in the provider
 newly-required evt.ln.loan.payment-made.v1 LoanPaymentMade $.data.paymentId # provider always sets paymentId
+no-longer-required evt.ln.loan.rejected.v1 LoanRejected $.data.reason   # same change as above, reported by the stricter gate
+no-longer-required evt.ln.loan.cancelled.v1 LoanCancelled $.data.reason # same change as above, reported by the stricter gate

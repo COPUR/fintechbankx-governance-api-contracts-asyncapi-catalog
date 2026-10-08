@@ -29,8 +29,7 @@
         "evt.cus.customer.credit-limit-updated.v1",
         "evt.cus.customer.credit-reserved.v1",
         "evt.cus.customer.credit-released.v1",
-        "evt.cus.customer.credit-score-updated.v1",
-        "evt.cus.customer.dlq.v1"
+        "evt.cus.customer.credit-score-updated.v1"
       ],
       "providerSpecPath": null
     },
@@ -88,8 +87,7 @@
         "evt.pay.payment.refunded.v1",
         "evt.pay.payment.loan-payment-created.v1",
         "evt.pay.payment.loan-payment-completed.v1",
-        "evt.pay.payment.loan-payment-failed.v1",
-        "evt.pay.payment.dlq.v1"
+        "evt.pay.payment.loan-payment-failed.v1"
       ],
       "providerSpecPath": null
     },
