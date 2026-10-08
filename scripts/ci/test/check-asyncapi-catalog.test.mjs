@@ -78,3 +78,46 @@ test('fails on duplicate namespaces in the index', () => {
 test('fails on an unknown implementation status', () => {
   expectError({ services: [entry({ implementationStatus: 'live' })] }, /implementationStatus must be one of/);
 });
+
+// Consumed (receive-only) channels may live in another namespace.
+function consumerSpec(addr) {
+  const doc = spec();
+  doc.channels.paymentDone = {
+    address: addr,
+    messages: { SampleCreated: { $ref: '#/components/messages/SampleCreated' } },
+    bindings: { kafka: { topic: addr } },
+  };
+  doc.operations = {
+    publishCreated: { action: 'send', channel: { $ref: '#/channels/created' } },
+    receivePaymentDone: { action: 'receive', channel: { $ref: '#/channels/paymentDone' } },
+  };
+  return doc;
+}
+const provider = () => entry({ serviceId: 'svc-tst-provider', file: 'asyncapi/svc-tst-provider.yaml', namespace: 'evt.tst.provider', channels: ['evt.tst.provider.created.v1', 'evt.tst.provider.dlq.v1'] });
+
+test('a receive-only channel in another namespace passes when listed in consumes', () => {
+  const specs = {
+    'svc-tst-sample.yaml': consumerSpec('evt.tst.provider.created.v1'),
+    'svc-tst-provider.yaml': spec({ serviceId: 'svc-tst-provider', namespace: 'evt.tst.provider' }),
+  };
+  assert.deepEqual(errorsOf({ specs, services: [entry({ consumes: ['evt.tst.provider.created.v1'] }), provider()] }), []);
+});
+
+test('fails when a consumed channel is missing from consumes', () => {
+  const specs = { 'svc-tst-sample.yaml': consumerSpec('evt.tst.provider.created.v1') };
+  expectError({ specs }, /index consumes \[\] differs/);
+});
+
+test('fails when the provider spec does not publish the consumed topic', () => {
+  const specs = {
+    'svc-tst-sample.yaml': consumerSpec('evt.tst.provider.paid.v1'),
+    'svc-tst-provider.yaml': spec({ serviceId: 'svc-tst-provider', namespace: 'evt.tst.provider' }),
+  };
+  expectError({ specs, services: [entry({ consumes: ['evt.tst.provider.paid.v1'] }), provider()] }, /does not publish/);
+});
+
+test('a send channel outside the namespace still fails even with operations declared', () => {
+  const doc = consumerSpec('evt.tst.provider.created.v1');
+  doc.operations.receivePaymentDone.action = 'send';
+  expectError({ specs: { 'svc-tst-sample.yaml': doc }, services: [entry({ channels: ['evt.tst.sample.created.v1', 'evt.tst.sample.dlq.v1', 'evt.tst.provider.created.v1'] })] }, /outside the service namespace/);
+});

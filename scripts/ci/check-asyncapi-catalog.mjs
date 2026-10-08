@@ -14,7 +14,10 @@
 //   - a channel address is outside the spec's namespace, or its Kafka binding topic differs from the address;
 //   - the index channel list differs from the spec's channel addresses;
 //   - a message payload does not use the common envelope ($ref to common/event-envelope.yaml#/EventEnvelope);
-//   - the same topic address is declared by two specs.
+//   - the same topic address is published by two specs.
+// Consumed channels (every operation on the channel is `receive`) may sit in another namespace. They must be
+// listed in the entry's optional `consumes` array, are not counted as published, and when the owning
+// namespace has a spec in the catalog that spec must publish the topic.
 import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -62,6 +65,7 @@ export function checkCatalog(root) {
     if (!NAMESPACE_RE.test(e?.namespace ?? '')) err(`${where}: namespace must match ${NAMESPACE_RE}`);
     if (!STATUSES.includes(e?.implementationStatus)) err(`${where}: implementationStatus must be one of ${STATUSES.join(', ')}`);
     if (!Array.isArray(e?.channels)) err(`${where}: channels must be an array`);
+    if (e?.consumes !== undefined && !Array.isArray(e.consumes)) err(`${where}: consumes must be an array when present`);
     if (!(e?.providerSpecPath === null || typeof e?.providerSpecPath === 'string')) err(`${where}: providerSpecPath must be a string or null`);
     if (e?.file === null) {
       if (e?.implementationStatus !== 'no-contract') err(`${where}: entries without a file must have implementationStatus "no-contract"`);
@@ -90,6 +94,7 @@ export function checkCatalog(root) {
 
   // 3. Per-spec checks.
   const topicOwner = new Map();
+  const consumed = []; // { file, where, addr }
   const resolver = createResolver((rel) => {
     const p = path.join(root, rel);
     return fs.existsSync(p) ? fs.readFileSync(p, 'utf8') : null;
@@ -119,11 +124,28 @@ export function checkCatalog(root) {
       continue;
     }
     const addresses = [];
+    const consumedHere = [];
+    const opActions = new Map(); // channel key -> Set(actions)
+    for (const op of Object.values(doc?.operations ?? {})) {
+      const ref = op?.channel?.$ref ?? '';
+      const key = ref.startsWith('#/channels/') ? ref.slice('#/channels/'.length) : null;
+      if (!key) continue;
+      if (!opActions.has(key)) opActions.set(key, new Set());
+      opActions.get(key).add(op?.action);
+    }
     for (const ch of channels) {
       const where = `${f} channels.${ch.key}`;
       const addr = ch.address;
       if (typeof addr !== 'string') {
         err(`${where}: missing address`);
+        continue;
+      }
+      const actions = opActions.get(ch.key);
+      const receiveOnly = actions && actions.size > 0 && [...actions].every((a) => a === 'receive');
+      if (receiveOnly) {
+        consumedHere.push(addr);
+        if (!TOPIC_RE.test(addr)) err(`${where}: consumed address ${addr} does not match ${TOPIC_RE}`);
+        consumed.push({ file: f, where, addr });
         continue;
       }
       addresses.push(addr);
@@ -162,7 +184,18 @@ export function checkCatalog(root) {
       const extra = indexed.filter((a) => !actual.includes(a));
       err(`${f}: index channels differ from spec (missing in index: [${missing.join(', ')}], not in spec: [${extra.join(', ')}])`);
     }
-    notes.push(`${f}: ${entry.serviceId} ${ns} ${addresses.length} channel(s), status ${entry.implementationStatus}`);
+    const indexedConsumes = [...(entry.consumes ?? [])].sort();
+    if (JSON.stringify(indexedConsumes) !== JSON.stringify([...consumedHere].sort())) {
+      err(`${f}: index consumes [${indexedConsumes.join(', ')}] differs from the spec's receive-only channels [${[...consumedHere].sort().join(', ')}]`);
+    }
+    notes.push(`${f}: ${entry.serviceId} ${ns} ${addresses.length} channel(s), ${consumedHere.length} consumed, status ${entry.implementationStatus}`);
+  }
+  const nsWithSpec = new Map(entries.filter((e) => e?.file).map((e) => [e.namespace, e.file]));
+  for (const c of consumed) {
+    const owner = nsWithSpec.get(c.addr.split('.').slice(0, 3).join('.'));
+    if (owner && topicOwner.get(c.addr) !== owner) {
+      err(`${c.where}: consumes ${c.addr}, which ${owner} does not publish`);
+    }
   }
   for (const e of entries.filter((x) => x?.file === null)) {
     notes.push(`expected (no contract yet): ${e.serviceId} ${e.namespace} owner ${e.ownerRepo}`);

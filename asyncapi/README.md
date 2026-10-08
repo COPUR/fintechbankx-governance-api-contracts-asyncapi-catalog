@@ -89,6 +89,14 @@ npx -y @asyncapi/cli@2.13.0 validate asyncapi/<service-id>.yaml
 
 `asyncapi/common/` holds shared schemas only and is resolved through `$ref`, not validated on its own.
 
+## Consumers
+
+A spec may declare channels it only consumes (every operation on the channel has `action: receive`), for example
+`svc-ln-loan-lifecycle` consuming `evt.pay.payment.loan-payment-completed.v1` with group
+`cg.svc-ln-loan-lifecycle.loan-repayment-allocation.v1`. Such channels may sit in another namespace, are listed in the
+index entry's `consumes` array (not in `channels`), and the check fails if the owning namespace's spec is in the catalog
+but does not publish that topic.
+
 ## Change rules
 
 - Adding an optional field is a minor change: bump `info.version` minor.
