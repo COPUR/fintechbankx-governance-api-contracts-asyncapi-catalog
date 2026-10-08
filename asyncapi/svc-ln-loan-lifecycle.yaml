@@ -170,25 +170,6 @@ channels:
           retention.ms: 604800000
           max.message.bytes: 1048576
         bindingVersion: 0.5.0
-  deadLetter:
-    address: evt.ln.loan.dlq.v1
-    title: evt.ln.loan.dlq.v1
-    description: Dead-letter topic for the evt.ln.loan namespace. Written by consumers (not by svc-ln-loan-lifecycle)
-      after bounded retries; replayed by the owning consumer squad.
-    messages:
-      DeadLetter:
-        $ref: '#/components/messages/DeadLetter'
-    bindings:
-      kafka:
-        topic: evt.ln.loan.dlq.v1
-        partitions: 3
-        replicas: 3
-        topicConfiguration:
-          cleanup.policy:
-          - delete
-          retention.ms: 1209600000
-          max.message.bytes: 1048576
-        bindingVersion: 0.5.0
 operations:
   publishLoanCreated:
     action: send

@@ -206,25 +206,6 @@ channels:
           retention.ms: 604800000
           max.message.bytes: 1048576
         bindingVersion: 0.5.0
-  deadLetter:
-    address: evt.pay.payment.dlq.v1
-    title: evt.pay.payment.dlq.v1
-    description: Dead-letter topic for the evt.pay.payment namespace. Written by consumers (not by svc-pay-initiation-settlement)
-      after bounded retries; replayed by the owning consumer squad.
-    messages:
-      DeadLetter:
-        $ref: '#/components/messages/DeadLetter'
-    bindings:
-      kafka:
-        topic: evt.pay.payment.dlq.v1
-        partitions: 3
-        replicas: 3
-        topicConfiguration:
-          cleanup.policy:
-          - delete
-          retention.ms: 1209600000
-          max.message.bytes: 1048576
-        bindingVersion: 0.5.0
 operations:
   publishPaymentCreated:
     action: send
@@ -486,6 +467,14 @@ components:
           allOf:
           - $ref: '#/components/schemas/MonetaryAmount'
           description: Amount actually paid.
+        transactionReference:
+          type: string
+          description: Settlement transaction reference of the payment.
+          minLength: 1
+        completedAt:
+          type: string
+          format: date-time
+          description: When the payment completed.
       required:
       - paymentId
       - customerId

@@ -29,8 +29,7 @@
         "evt.cus.customer.credit-limit-updated.v1",
         "evt.cus.customer.credit-reserved.v1",
         "evt.cus.customer.credit-released.v1",
-        "evt.cus.customer.credit-score-updated.v1",
-        "evt.cus.customer.dlq.v1"
+        "evt.cus.customer.credit-score-updated.v1"
       ],
       "providerSpecPath": null
     },
@@ -56,8 +55,7 @@
         "evt.ln.loan.disbursed.v1",
         "evt.ln.loan.cancelled.v1",
         "evt.ln.loan.payment-made.v1",
-        "evt.ln.loan.fully-paid.v1",
-        "evt.ln.loan.dlq.v1"
+        "evt.ln.loan.fully-paid.v1"
       ],
       "providerSpecPath": null
     },
@@ -85,8 +83,7 @@
         "evt.pay.payment.refunded.v1",
         "evt.pay.payment.loan-payment-created.v1",
         "evt.pay.payment.loan-payment-completed.v1",
-        "evt.pay.payment.loan-payment-failed.v1",
-        "evt.pay.payment.dlq.v1"
+        "evt.pay.payment.loan-payment-failed.v1"
       ],
       "providerSpecPath": null
     },
@@ -103,8 +100,7 @@
       "channels": [
         "evt.pay.rtp.created.v1",
         "evt.pay.rtp.accepted.v1",
-        "evt.pay.rtp.rejected.v1",
-        "evt.pay.rtp.dlq.v1"
+        "evt.pay.rtp.rejected.v1"
       ],
       "providerSpecPath": null
     },
