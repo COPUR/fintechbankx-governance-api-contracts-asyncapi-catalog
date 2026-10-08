@@ -168,25 +168,6 @@ channels:
     - serviceId: svc-of-banking-metadata
       consumerGroup: cg.svc-of-banking-metadata.consent-projection.v1
       deadLetterTopic: evt.of.metadata.dlq.v1
-  deadLetter:
-    address: evt.of.consent.dlq.v1
-    title: evt.of.consent.dlq.v1
-    description: 'Dead-letter topic owned by svc-of-consent-authorization (ADR-019/ADR-024): written by this service''s own
-      consumers after bounded retries. Consumers of this namespace write to their own namespace DLQ, not here.'
-    messages:
-      DeadLetter:
-        $ref: '#/components/messages/DeadLetter'
-    bindings:
-      kafka:
-        topic: evt.of.consent.dlq.v1
-        partitions: 6
-        replicas: 3
-        topicConfiguration:
-          cleanup.policy:
-          - delete
-          retention.ms: 1209600000
-          max.message.bytes: 1048576
-        bindingVersion: 0.5.0
 operations:
   publishConsentCreated:
     action: send
@@ -397,21 +378,6 @@ components:
             description: aggregateId (consentId).
           bindingVersion: 0.5.0
       x-source-class: com.enterprise.openfinance.consentauthorization.domain.event.ConsentLifecycleEvent
-    DeadLetter:
-      name: DeadLetter
-      title: Dead letter for evt.of.consent
-      summary: A message from this namespace that a consumer could not process after bounded retries.
-      contentType: application/json
-      headers:
-        $ref: '#/components/schemas/DeadLetterHeaders'
-      payload:
-        $ref: '#/components/schemas/EventEnvelope'
-      bindings:
-        kafka:
-          key:
-            type: string
-            description: Original record key (aggregateId).
-          bindingVersion: 0.5.0
   securitySchemes:
     mskIam:
       type: userPassword

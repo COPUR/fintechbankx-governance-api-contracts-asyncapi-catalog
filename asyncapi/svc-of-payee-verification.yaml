@@ -68,25 +68,6 @@ channels:
           retention.ms: 604800000
           max.message.bytes: 1048576
         bindingVersion: 0.5.0
-  deadLetter:
-    address: evt.of.payee.dlq.v1
-    title: evt.of.payee.dlq.v1
-    description: 'Dead-letter topic owned by svc-of-payee-verification (ADR-019/ADR-024): written by this service''s own consumers
-      after bounded retries. Consumers of this namespace write to their own namespace DLQ, not here.'
-    messages:
-      DeadLetter:
-        $ref: '#/components/messages/DeadLetter'
-    bindings:
-      kafka:
-        topic: evt.of.payee.dlq.v1
-        partitions: 6
-        replicas: 3
-        topicConfiguration:
-          cleanup.policy:
-          - delete
-          retention.ms: 1209600000
-          max.message.bytes: 1048576
-        bindingVersion: 0.5.0
 operations:
   publishPayeeVerificationCompleted:
     action: send
@@ -168,21 +149,6 @@ components:
           key:
             type: string
             description: aggregateId (verificationId).
-          bindingVersion: 0.5.0
-    DeadLetter:
-      name: DeadLetter
-      title: Dead letter for evt.of.payee
-      summary: A message from this namespace that a consumer could not process after bounded retries.
-      contentType: application/json
-      headers:
-        $ref: '#/components/schemas/DeadLetterHeaders'
-      payload:
-        $ref: '#/components/schemas/EventEnvelope'
-      bindings:
-        kafka:
-          key:
-            type: string
-            description: Original record key (aggregateId).
           bindingVersion: 0.5.0
   securitySchemes:
     mskIam:

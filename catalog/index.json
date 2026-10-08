@@ -145,8 +145,7 @@
         "evt.of.consent.created.v1",
         "evt.of.consent.authorized.v1",
         "evt.of.consent.revoked.v1",
-        "evt.of.consent.expired.v1",
-        "evt.of.consent.dlq.v1"
+        "evt.of.consent.expired.v1"
       ],
       "providerSpecPath": null,
       "implementationStatus": "contract-only",
@@ -166,8 +165,7 @@
       "owningSquad": "Payee and Metadata Squad",
       "namespace": "evt.of.payee",
       "channels": [
-        "evt.of.payee.verification-completed.v1",
-        "evt.of.payee.dlq.v1"
+        "evt.of.payee.verification-completed.v1"
       ],
       "providerSpecPath": null,
       "implementationStatus": "contract-only",
