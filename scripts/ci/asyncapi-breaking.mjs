@@ -18,8 +18,10 @@
 //   no-longer-required a payload property was required at the base and is optional now (consumers rely on it)
 //   changed-const      a const was added, removed or changed (eventType, producer, fixed values)
 //   changed-constraint a validation keyword (pattern, format, min/max length, range, items) was added,
-//                      removed or changed; replayed records may no longer validate, or consumers get values
-//                      they reject
+//                      removed or changed, an enum was added to a property that had none, or
+//                      additionalProperties was closed or changed (opening it is compatible); replayed records
+//                      may no longer validate, or consumers get values they reject. Applies at every level,
+//                      array items ('[]') included
 //   changed-binding    the channel's Kafka binding changed its topic, partitions or cleanup.policy, or
 //                      lowered retention.ms (ordering per key, compaction and replay depend on them)
 //   changed-message-key the message's Kafka key schema changed (descriptions excepted)
@@ -129,6 +131,12 @@ export function compareSpecs(file, readBase, readHead) {
           if (bv !== hv) add('changed-constraint', `${subject} ${k}`, `${k} changed from ${bv} to ${hv}`);
         }
         if (b.types && h.types && b.types !== h.types) add('changed-type', subject, `type changed from ${b.types} to ${h.types}`);
+        // Closing a value set or an object rejects records that validated before (replay, older producers).
+        if (!b.enum && h.enum) add('changed-constraint', `${subject} enum`, `enum ${h.enum.join(',')} was added to ${p}`);
+        const opened = h.additionalProperties === undefined || h.additionalProperties === 'true';
+        if (b.additionalProperties !== h.additionalProperties && !opened) {
+          add('changed-constraint', `${subject} additionalProperties`, `additionalProperties changed from ${b.additionalProperties} to ${h.additionalProperties}`);
+        }
         if (b.enum && h.enum) {
           for (const v of b.enum.filter((x) => !h.enum.includes(x))) {
             add('removed-enum-value', `${subject} ${v}`, `enum value ${v} was removed from ${p}`);

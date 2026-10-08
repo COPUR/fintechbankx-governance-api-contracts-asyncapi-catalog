@@ -81,7 +81,7 @@ for spec in asyncapi/*.yaml; do npx -y @asyncapi/cli@2.13.0 validate "$spec"; do
 |---|---|---|
 | AsyncAPI validation | `@asyncapi/cli@2.13.0 validate` | a top-level spec is not valid AsyncAPI |
 | Catalog consistency | `scripts/ci/check-asyncapi-catalog.mjs` | a spec has no index entry or an entry has no spec; an entry is malformed or duplicates a service id, file or namespace; `info.x-service-id` / `info.x-event-namespace` differ from the index; a channel address does not match `^evt\.[a-z]+\.[a-z0-9-]+\.[a-z0-9-]+\.v[0-9]+$` (dead-letter `<namespace>.dlq.v<N>` matches it); a channel is outside the spec's namespace; `bindings.kafka.topic` differs from the address; the index channel list differs from the spec; a message payload does not `$ref` `common/event-envelope.yaml#/EventEnvelope` (directly or via `allOf`); two specs declare the same topic |
-| Breaking changes | `scripts/ci/asyncapi-breaking.sh` (rules in `asyncapi-breaking.mjs`) | compared with the merge base of `BASE_REF` (default `origin/main`): a spec, channel or message is removed; a payload property (envelope or `data`) is removed; a property becomes required, stops being required, or a new required property appears; a property's type changes; an enum value is removed; a `const` changes (`eventType`, `producer`); a validation keyword (`pattern`, `format`, length, range or item limits) is added, removed or changed; the channel's Kafka `topic`, `partitions` or `cleanup.policy` changes or `retention.ms` drops; the message's Kafka key schema changes. Removing a `*.dlq.vN` channel is not breaking (ADR-019). New spec files are skipped |
+| Breaking changes | `scripts/ci/asyncapi-breaking.sh` (rules in `asyncapi-breaking.mjs`) | compared with the merge base of `BASE_REF` (default `origin/main`): a spec, channel or message is removed; a payload property (envelope or `data`) is removed; a property becomes required, stops being required, or a new required property appears; a property's type changes; an enum value is removed, or an enum is added to a property that had none (at every level, array items included); a `const` changes (`eventType`, `producer`); a validation keyword (`pattern`, `format`, length, range or item limits) is added, removed or changed, or `additionalProperties` is closed or changed (opening it is compatible); the channel's Kafka `topic`, `partitions` or `cleanup.policy` changes or `retention.ms` drops; the message's Kafka key schema changes. Removing a `*.dlq.vN` channel is not breaking (ADR-019). New spec files are skipped |
 | Unit tests | `scripts/ci/test/*.test.mjs` (`node:test`) | a rule above stops failing on its fixture |
 
 `npx @asyncapi/cli@2.13.0 diff` is not used because it does not support AsyncAPI 3.0 documents. The breaking check
@@ -113,12 +113,16 @@ but does not publish that topic.
 - Adding an optional field is a minor change: bump `info.version` minor.
 - Removing or renaming a field, changing a type or changing meaning is a new major version on a new topic
   (`...v2`); the producer dual-publishes until every consumer has moved.
+- Versions count from the first time a spec lands on this catalog's `main`. Before that the spec is pre-release:
+  it stays `1.0.0`, carries no version-history paragraph, and a change that would be breaking later is folded
+  into `1.0.0` (no `accepted-breaking.txt` entry, no `.v2` topic). A pre-release spec has no consumers by
+  definition, because consumers build against the catalog's `main`.
 - Change the contract in the provider repository first, then mirror it here in a separate PR, updating
   `catalog/index.json` in the same PR.
 
 ## Servers and authentication
 
-Every spec declares two servers, matching ADR-024 and the platform contract of 2026-10-08:
+Every spec declares two servers, matching ADR-024 (`docs/architecture/decisions/ADR-024-kafka-runtime-msk-iam-and-producer-defaults.md` in `fintechbankx-governance-architecture-enablement-adr-runbooks`, adr-runbooks PR #10 until it merges) and the platform contract of 2026-10-08:
 
 - `msk`: Amazon MSK on AWS. TLS in transit, SASL_SSL with mechanism `AWS_MSK_IAM` using the service's IRSA role; topic-scoped IAM
   policies come from the terraform module `msk-client-access`. AsyncAPI has no IAM scheme type, so the `mskIam` scheme uses

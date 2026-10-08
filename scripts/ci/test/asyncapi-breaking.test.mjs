@@ -119,3 +119,30 @@ test('a changed message key is breaking, a reworded key description is not', () 
   assert.deepEqual(rules(base, withKey({ type: 'string', description: 'The sample id.' })), []);
   assert.deepEqual(rules(base, withKey({ type: 'integer', description: 'aggregateId (sampleId).' })), ['changed-message-key evt.tst.sample.created.v1 SampleCreated']);
 });
+
+// Narrowing a value set or closing an object (open finance review, 2026-10-08).
+const tags = (values) => data((d) => { d.properties.tags = { type: 'array', items: { type: 'string', ...(values ? { enum: values } : {}) } }; });
+
+test('removing an enum value of array items is breaking', () => {
+  assert.deepEqual(rules(tags(['A', 'B']), tags(['A'])), ['removed-enum-value evt.tst.sample.created.v1 SampleCreated $.data.tags[] "B"']);
+});
+
+test('adding an enum to array items that had none is breaking', () => {
+  assert.deepEqual(rules(tags(null), tags(['A'])), ['changed-constraint evt.tst.sample.created.v1 SampleCreated $.data.tags[] enum']);
+});
+
+test('adding an enum to a property that had none is breaking', () => {
+  assert.deepEqual(rules(spec(), data((d) => { d.properties.note.enum = ['X']; })), ['changed-constraint evt.tst.sample.created.v1 SampleCreated $.data.note enum']);
+});
+
+test('closing additionalProperties is breaking', () => {
+  assert.deepEqual(
+    rules(spec(), data((d) => { d.additionalProperties = false; })),
+    ['changed-constraint evt.tst.sample.created.v1 SampleCreated $.data additionalProperties'],
+  );
+});
+
+test('opening additionalProperties is compatible', () => {
+  assert.deepEqual(rules(data((d) => { d.additionalProperties = false; }), spec()), []);
+  assert.deepEqual(rules(data((d) => { d.additionalProperties = false; }), data((d) => { d.additionalProperties = true; })), []);
+});
