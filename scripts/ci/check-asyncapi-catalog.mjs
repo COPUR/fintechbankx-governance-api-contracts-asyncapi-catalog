@@ -10,14 +10,16 @@
 //   - two index entries share a serviceId, file or namespace;
 //   - a spec's info.x-service-id / info.x-event-namespace differ from its index entry;
 //   - a channel address does not match ^evt\.[a-z]+\.[a-z0-9-]+\.[a-z0-9-]+\.v[0-9]+$
-//     (dead-letter topics <namespace>.dlq.v<N> match the same pattern);
+//     (dead-letter topics <namespace>.dlq.v<N> match the same pattern; DLQs are
+//     consumer-owned, so they sit in the spec's own namespace, ADR-019);
 //   - a channel address is outside the spec's namespace, or its Kafka binding topic differs from the address;
 //   - the index channel list differs from the spec's channel addresses;
 //   - a message payload does not use the common envelope ($ref to common/event-envelope.yaml#/EventEnvelope);
 //   - the same topic address is published by two specs.
 // Consumed channels (every operation on the channel is `receive`) may sit in another namespace. They must be
 // listed in the entry's optional `consumes` array, are not counted as published, and when the owning
-// namespace has a spec in the catalog that spec must publish the topic.
+// namespace has a spec in the catalog that spec must publish the topic. Another namespace's dead-letter topic
+// cannot be consumed: DLQs are consumer-owned (ADR-019).
 import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -145,6 +147,9 @@ export function checkCatalog(root) {
       if (receiveOnly) {
         consumedHere.push(addr);
         if (!TOPIC_RE.test(addr)) err(`${where}: consumed address ${addr} does not match ${TOPIC_RE}`);
+        else if (/\.dlq\.v[0-9]+$/.test(addr) && addr.split('.').slice(0, 3).join('.') !== ns) {
+          err(`${where}: consumes ${addr}, a dead-letter topic of another namespace; DLQs are consumer-owned (ADR-019), read your own <namespace>.dlq.v<N>`);
+        }
         consumed.push({ file: f, where, addr });
         continue;
       }

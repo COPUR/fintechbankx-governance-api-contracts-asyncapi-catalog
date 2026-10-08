@@ -121,3 +121,11 @@ test('a send channel outside the namespace still fails even with operations decl
   doc.operations.receivePaymentDone.action = 'send';
   expectError({ specs: { 'svc-tst-sample.yaml': doc }, services: [entry({ channels: ['evt.tst.sample.created.v1', 'evt.tst.sample.dlq.v1', 'evt.tst.provider.created.v1'] })] }, /outside the service namespace/);
 });
+
+test('fails when a spec consumes another namespace\'s dead-letter topic (DLQs are consumer-owned)', () => {
+  const specs = {
+    'svc-tst-sample.yaml': consumerSpec('evt.tst.provider.dlq.v1'),
+    'svc-tst-provider.yaml': spec({ serviceId: 'svc-tst-provider', namespace: 'evt.tst.provider' }),
+  };
+  expectError({ specs, services: [entry({ consumes: ['evt.tst.provider.dlq.v1'] }), provider()] }, /dead-letter topic of another namespace/);
+});

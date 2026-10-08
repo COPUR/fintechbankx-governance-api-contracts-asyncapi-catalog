@@ -94,7 +94,8 @@ DeadLetterHeaders:
   type: object
   description: >-
     Headers added by the consumer that moves a poison message to the
-    namespace DLQ after bounded retries. The original record value and key are
+    DLQ in the consumer's own namespace (consumer-owned DLQ, ADR-019) after
+    bounded retries. The original record value and key are
     copied unchanged.
   required:
     - eventType
