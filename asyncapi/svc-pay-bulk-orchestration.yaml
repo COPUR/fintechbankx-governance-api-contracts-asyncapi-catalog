@@ -1,6 +1,6 @@
 # AsyncAPI contract for svc-pay-bulk-orchestration.
 # Status: Proposed. The provider repository owns this contract; this catalog mirrors it.
-# Provider copy: fintechbankx-lendingpayments-payment-orchestration-bulk-orchestration api/asyncapi/svc-pay-bulk-orchestration.yaml (branch claude/lending-payments-deployable-zxfdi1).
+# Provider copy: fintechbankx-lendingpayments-payment-orchestration-bulk-orchestration api/asyncapi/svc-pay-bulk-orchestration.yaml (branch claude/lending-payments-deployable-zxfdi1, commit 4a9df58).
 # Naming: docs/NAMING_CONVENTION_DDD_EDA_BUSINESS_CONTEXT.md
 # Validate: npx -y @asyncapi/cli@2.13.0 validate asyncapi/svc-pay-bulk-orchestration.yaml
 asyncapi: 3.0.0
@@ -13,11 +13,11 @@ info:
 
     Status: Proposed. Owner: Recurring and Bulk Payments Squad, Lending and Payments Tribe. Event namespace: `evt.pay.bulk`.
 
+    Emitted today: Accepted (upload) and Rejected (every item rejected, or the consent stopped being usable while the file was processing; see `reason`). A file whose items are validated with at least one accepted becomes VALIDATED and raises no event; Completed is reserved (x-emitted: false) until items are handed to svc-pay-initiation-settlement.
+
     Events are raised by the BulkFile aggregate and written through a transactional outbox (sc_pay_bulk_orchestration.outbox_event) in the same transaction as the file; a relay publishes them in order. The record key is the aggregateId (the file id). Payloads carry ids, counts and amounts only; payee IBANs and item lines are never published (read them from GET /open-finance/v1/file-payments/{fileId}/report).
 
-    Envelope (common/event-envelope.yaml): aggregateVersion is the file version after the change (0 at acceptance; one more per processed batch). correlationId is the x-fapi-interaction-id of the upload request for the Accepted event and the file id for events raised by the background processor. causationId is always null in v1.
-
-    Amounts are decimal strings with at least two decimals and no rounding. The upload CSV carries no currency; the currency is not part of v1 (open question in the runbook).
+    Amounts are decimal strings at the minor units of the file's ISO 4217 currency (JPY 1500, AED 1500.00, KWD 1.234), never rounded. The currency is a required field of the upload request (the CSV has no currency column) and is carried as `currency` next to `totalAmount`.
 
     Adding an optional field is a minor change; any removal, rename or type change is a new major version on a new topic with dual-publish.
   tags:
@@ -70,7 +70,12 @@ channels:
   fileCompleted:
     address: evt.pay.bulk.completed.v1
     title: evt.pay.bulk.completed.v1
-    description: Payments.BulkFile.Completed.v1. Every item of the file was processed and at least one item was accepted (outcome COMPLETED or PARTIALLY_ACCEPTED).
+    description: >-
+      Payments.BulkFile.Completed.v1. NOT YET EMITTED. Reserved for when the accepted items of a
+      file have been handed to and settled by svc-pay-initiation-settlement. Today no item reaches
+      initiation-settlement, so a fully validated file stays VALIDATED and nothing is published here
+      (how items reach initiation-settlement is an open question with the owner).
+    x-emitted: false
     messages:
       BulkFileCompleted:
         $ref: '#/components/messages/BulkFileCompleted'
@@ -88,7 +93,7 @@ channels:
   fileRejected:
     address: evt.pay.bulk.rejected.v1
     title: evt.pay.bulk.rejected.v1
-    description: Payments.BulkFile.Rejected.v1. Every item of the file was processed and none was accepted (invalid items, or one invalid item in FULL_REJECTION mode).
+    description: Payments.BulkFile.Rejected.v1. No item of the file will be released. reason ALL_ITEMS_REJECTED - every item was processed and none was accepted (invalid items, or one invalid item in FULL_REJECTION mode); reason CONSENT_NOT_USABLE - the consent was revoked, expired or no longer authorises the file before every item was released (status Stopped), after an earlier Accepted event.
     messages:
       BulkFileRejected:
         $ref: '#/components/messages/BulkFileRejected'
@@ -114,8 +119,9 @@ operations:
     - $ref: '#/channels/fileAccepted/messages/BulkFileAccepted'
   publishBulkFileCompleted:
     action: send
-    title: Publish Payments.BulkFile.Completed.v1
-    summary: svc-pay-bulk-orchestration publishes Payments.BulkFile.Completed.v1 through its transactional outbox.
+    title: Publish Payments.BulkFile.Completed.v1 (not yet emitted)
+    summary: Planned. Not emitted until a hand-off of accepted items to svc-pay-initiation-settlement exists.
+    x-emitted: false
     channel:
       $ref: '#/channels/fileCompleted'
     messages:
@@ -146,8 +152,6 @@ components:
               const: Payments.BulkFile.Accepted.v1
             producer:
               const: svc-pay-bulk-orchestration
-            aggregateId:
-              description: Bulk file id (FILE-BULK-<uuid>); also the Kafka record key.
             data:
               $ref: '#/components/schemas/BulkFileAcceptedData'
       bindings:
@@ -173,8 +177,6 @@ components:
               const: Payments.BulkFile.Completed.v1
             producer:
               const: svc-pay-bulk-orchestration
-            aggregateId:
-              description: Bulk file id (FILE-BULK-<uuid>); also the Kafka record key.
             data:
               $ref: '#/components/schemas/BulkFileCompletedData'
       bindings:
@@ -200,8 +202,6 @@ components:
               const: Payments.BulkFile.Rejected.v1
             producer:
               const: svc-pay-bulk-orchestration
-            aggregateId:
-              description: Bulk file id (FILE-BULK-<uuid>); also the Kafka record key.
             data:
               $ref: '#/components/schemas/BulkFileRejectedData'
       bindings:
@@ -213,13 +213,55 @@ components:
       x-source-class: com.enterprise.openfinance.bulkpayments.domain.event.BulkFileRejected
   schemas:
     EventEnvelope:
-      $ref: ./common/event-envelope.yaml#/EventEnvelope
+      description: >-
+        Standard FinTechBankX envelope (common/event-envelope.yaml) with the bulk-specific meaning of its fields.
+        Consumers must be idempotent on eventId and ignore unknown fields.
+      allOf:
+      - $ref: ./common/event-envelope.yaml#/EventEnvelope
+      - type: object
+        properties:
+          aggregateId:
+            description: Bulk file id (FILE-BULK-<uuid>); also the Kafka record key.
+          aggregateVersion:
+            description: Version of the file after the change (0 at acceptance; one more per processed batch).
+          correlationId:
+            description: >-
+              x-fapi-interaction-id of the upload request for the Accepted event; the
+              file id for events raised by the background processor.
+          causationId:
+            description: Always null in v1.
+          producer:
+            const: svc-pay-bulk-orchestration
     EventHeaders:
-      $ref: ./common/event-envelope.yaml#/EventHeaders
+      type: object
+      required:
+      - eventType
+      - eventId
+      - correlationId
+      properties:
+        eventType:
+          type: string
+        eventId:
+          type: string
+          format: uuid
+        correlationId:
+          type: string
+        x-fapi-interaction-id:
+          type: string
+          description: Same value as correlationId.
+        traceparent:
+          type: string
+          description: W3C trace context of the request that raised the event, when one was active.
     DecimalAmount:
       type: string
-      pattern: '^[0-9]+\.[0-9]{2,}$'
-      description: Non-negative decimal string with at least two decimals, for example 1500.00.
+      pattern: '^[0-9]+(\.[0-9]+)?$'
+      description: >-
+        Non-negative decimal string with exactly the minor units of the accompanying currency
+        (0 for JPY, 2 for AED, 3 for KWD), for example 1500, 1500.00 or 1.234.
+    CurrencyCode:
+      type: string
+      pattern: '^[A-Z]{3}$'
+      description: ISO 4217 alphabetic currency code of the file, for example AED.
     BulkFileAcceptedData:
       type: object
       description: Payload of Payments.BulkFile.Accepted.v1.
@@ -232,6 +274,7 @@ components:
       - acceptedCount
       - rejectedCount
       - totalAmount
+      - currency
       properties:
         fileId:
           type: string
@@ -261,6 +304,8 @@ components:
           minimum: 0
         totalAmount:
           $ref: '#/components/schemas/DecimalAmount'
+        currency:
+          $ref: '#/components/schemas/CurrencyCode'
     BulkFileCompletedData:
       type: object
       description: Payload of Payments.BulkFile.Completed.v1.
@@ -303,6 +348,7 @@ components:
       - totalCount
       - rejectedCount
       - rejectedAt
+      - reason
       properties:
         fileId:
           type: string
@@ -316,6 +362,14 @@ components:
         rejectedAt:
           type: string
           format: date-time
+        reason:
+          type: string
+          enum:
+          - ALL_ITEMS_REJECTED
+          - CONSENT_NOT_USABLE
+          description: >-
+            Why no item is released. For CONSENT_NOT_USABLE rejectedCount equals totalCount: items
+            validated earlier are not released either.
   securitySchemes:
     mskIam:
       type: userPassword
