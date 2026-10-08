@@ -17,8 +17,15 @@ record key is `aggregateId`. Naming follows
 | [svc-rsk-decisioning.yaml](svc-rsk-decisioning.yaml) | Risk decisioning | `evt.rsk.risk` | `assessed` | Transactional outbox and relay (risk-decisioning-core) |
 | [svc-cmp-evidence.yaml](svc-cmp-evidence.yaml) | Compliance evidence | `evt.cmp.compliance` | `screened` | Transactional outbox and relay (compliance-evidence-core) |
 
-Full topic names are `<namespace>.<event>.v1`. Each namespace also has a dead-letter topic `<namespace>.dlq.v1`,
-written by consumers after bounded retries. Topics are provisioned by `scripts/kafka/create-topics.sh` in
+Full topic names are `<namespace>.<event>.v1`. Each namespace also has a dead-letter topic `<namespace>.dlq.v1`.
+
+Dead-letter topics are consumer-owned (ADR-019 in the ADR repo): a consumer that gives up on a record after bounded
+retries writes it to the DLQ in **its own** namespace, never to the source topic's namespace. For example, the loan
+service dead-letters a failed `evt.pay.payment.completed.v1` record to `evt.ln.loan.dlq.v1`, not to
+`evt.pay.payment.dlq.v1`. The `DeadLetterHeaders` in [common/event-envelope.yaml](common/event-envelope.yaml)
+(`dlq-original-topic`, `dlq-original-partition`, `dlq-original-offset`, `dlq-consumer-group`) identify the source,
+so the owning team can replay it. A spec lists its DLQ as a `send` channel in its own namespace; the catalog check
+rejects a send channel outside it. Topics are provisioned by `scripts/kafka/create-topics.sh` in
 `fintechbankx-platform-event-streaming-kafka`.
 
 No other fintechbankx service publishes events in code today (consent, account data, payee, metadata, open data,
@@ -71,7 +78,7 @@ for spec in asyncapi/*.yaml; do npx -y @asyncapi/cli@2.13.0 validate "$spec"; do
 |---|---|---|
 | AsyncAPI validation | `@asyncapi/cli@2.13.0 validate` | a top-level spec is not valid AsyncAPI |
 | Catalog consistency | `scripts/ci/check-asyncapi-catalog.mjs` | a spec has no index entry or an entry has no spec; an entry is malformed or duplicates a service id, file or namespace; `info.x-service-id` / `info.x-event-namespace` differ from the index; a channel address does not match `^evt\.[a-z]+\.[a-z0-9-]+\.[a-z0-9-]+\.v[0-9]+$` (dead-letter `<namespace>.dlq.v<N>` matches it); a channel is outside the spec's namespace; `bindings.kafka.topic` differs from the address; the index channel list differs from the spec; a message payload does not `$ref` `common/event-envelope.yaml#/EventEnvelope` (directly or via `allOf`); two specs declare the same topic |
-| Breaking changes | `scripts/ci/asyncapi-breaking.sh` (rules in `asyncapi-breaking.mjs`) | compared with the merge base of `BASE_REF` (default `origin/main`): a spec, channel or message is removed; a payload property (envelope or `data`) is removed; a property becomes required or a new required property appears; a property's type changes; an enum value is removed. New spec files are skipped |
+| Breaking changes | `scripts/ci/asyncapi-breaking.sh` (rules in `asyncapi-breaking.mjs`) | compared with the merge base of `BASE_REF` (default `origin/main`): a spec, channel or message is removed; a payload property (envelope or `data`) is removed; a property becomes required, stops being required, or a new required property appears; a property's type changes; an enum value is removed; a `const` changes (`eventType`, `producer`); a validation keyword (`pattern`, `format`, length, range or item limits) is added, removed or changed; the channel's Kafka `topic`, `partitions` or `cleanup.policy` changes or `retention.ms` drops; the message's Kafka key schema changes. Removing a `*.dlq.vN` channel is not breaking (ADR-019). New spec files are skipped |
 | Unit tests | `scripts/ci/test/*.test.mjs` (`node:test`) | a rule above stops failing on its fixture |
 
 `npx @asyncapi/cli@2.13.0 diff` is not used because it does not support AsyncAPI 3.0 documents. The breaking check
@@ -90,6 +97,14 @@ npx -y @asyncapi/cli@2.13.0 validate asyncapi/<service-id>.yaml
 
 `asyncapi/common/` holds shared schemas only and is resolved through `$ref`, not validated on its own.
 
+## Consumers
+
+A spec may declare channels it only consumes (every operation on the channel has `action: receive`), for example
+`svc-ln-loan-lifecycle` consuming `evt.pay.payment.loan-payment-completed.v1` with group
+`cg.svc-ln-loan-lifecycle.loan-repayment-allocation.v1`. Such channels may sit in another namespace, are listed in the
+index entry's `consumes` array (not in `channels`), and the check fails if the owning namespace's spec is in the catalog
+but does not publish that topic.
+
 ## Change rules
 
 - Adding an optional field is a minor change: bump `info.version` minor.
@@ -97,3 +112,15 @@ npx -y @asyncapi/cli@2.13.0 validate asyncapi/<service-id>.yaml
   (`...v2`); the producer dual-publishes until every consumer has moved.
 - Change the contract in the provider repository first, then mirror it here in a separate PR, updating
   `catalog/index.json` in the same PR.
+
+## Servers and authentication
+
+Every spec declares two servers, matching ADR-024 and the platform contract of 2026-10-08:
+
+- `msk`: Amazon MSK on AWS. TLS in transit, SASL_SSL with mechanism `AWS_MSK_IAM` using the service's IRSA role; topic-scoped IAM
+  policies come from the terraform module `msk-client-access`. AsyncAPI has no IAM scheme type, so the `mskIam` scheme uses
+  `userPassword` (the SASL family) with `x-sasl-mechanism: AWS_MSK_IAM`.
+- `local`: Strimzi in namespace `kafka` for local and non-AWS clusters, mutual TLS.
+
+Client conventions (consumer groups `cg.<svc>.<purpose>.v<major>`, the `outbox_pending_events` gauge, `traceparent` header) are in
+`docs/guides/SERVICE_CLIENT_CONFIGURATION.md` of `fintechbankx-platform-event-streaming-kafka`.
