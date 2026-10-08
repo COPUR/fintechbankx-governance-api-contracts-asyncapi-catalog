@@ -83,6 +83,10 @@ for spec in asyncapi/*.yaml; do npx -y @asyncapi/cli@2.13.0 validate "$spec"; do
 `npx @asyncapi/cli@2.13.0 diff` is not used because it does not support AsyncAPI 3.0 documents. The breaking check
 needs full history; the `ci/test` checkout uses `fetch-depth: 0`.
 
+Provider repositories run the same script unchanged on their own directory: set `ASYNCAPI_DIR` to the spec
+directory relative to the repository root (for example `ASYNCAPI_DIR=api/asyncapi`), with `BASE_REF=origin/main`
+(ADR-019 section 5). The accepted-breaking file then sits next to the spec in that directory.
+
 Accepted breaking changes go in `asyncapi/<service-id>.accepted-breaking.txt`, one finding key per line exactly as
 the check prints it (for example `removed-property evt.pay.rtp.accepted.v1 PayRequestAccepted $.data.creditorName`),
 with a `#` comment that links the major-version and dual-publish plan. Event payload schemas and their own

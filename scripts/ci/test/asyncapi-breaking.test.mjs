@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { compareSpecs, readAccepted } from '../asyncapi-breaking.mjs';
+import { compareSpecs, readAccepted, specDir } from '../asyncapi-breaking.mjs';
 import { spec, ENVELOPE, reader, deadLetterChannel } from './fixtures.mjs';
 
 const FILE = 'asyncapi/svc-tst-sample.yaml';
@@ -145,4 +145,11 @@ test('closing additionalProperties is breaking', () => {
 test('opening additionalProperties is compatible', () => {
   assert.deepEqual(rules(data((d) => { d.additionalProperties = false; }), spec()), []);
   assert.deepEqual(rules(data((d) => { d.additionalProperties = false; }), data((d) => { d.additionalProperties = true; })), []);
+});
+
+test('spec directory defaults to asyncapi and accepts a provider directory', () => {
+  assert.equal(specDir(undefined), 'asyncapi');
+  assert.equal(specDir(''), 'asyncapi');
+  assert.equal(specDir('api/asyncapi/'), 'api/asyncapi');
+  for (const bad of ['/abs', '../x', 'api/../x', './api', 'a//b']) assert.throws(() => specDir(bad), /ASYNCAPI_DIR/);
 });
