@@ -96,3 +96,15 @@ npx -y @asyncapi/cli@2.13.0 validate asyncapi/<service-id>.yaml
   (`...v2`); the producer dual-publishes until every consumer has moved.
 - Change the contract in the provider repository first, then mirror it here in a separate PR, updating
   `catalog/index.json` in the same PR.
+
+## Servers and authentication
+
+Every spec declares two servers, matching ADR-024 and the platform contract of 2026-10-08:
+
+- `msk`: Amazon MSK on AWS. TLS in transit, SASL_SSL with mechanism `AWS_MSK_IAM` using the service's IRSA role; topic-scoped IAM
+  policies come from the terraform module `msk-client-access`. AsyncAPI has no IAM scheme type, so the `mskIam` scheme uses
+  `userPassword` (the SASL family) with `x-sasl-mechanism: AWS_MSK_IAM`.
+- `local`: Strimzi in namespace `kafka` for local and non-AWS clusters, mutual TLS.
+
+Client conventions (consumer groups `cg.<svc>.<purpose>.v<major>`, the `outbox_pending_events` gauge, `traceparent` header) are in
+`docs/guides/SERVICE_CLIENT_CONFIGURATION.md` of `fintechbankx-platform-event-streaming-kafka`.
