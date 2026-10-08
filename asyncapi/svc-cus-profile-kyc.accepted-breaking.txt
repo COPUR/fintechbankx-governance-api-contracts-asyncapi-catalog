@@ -1,6 +1,0 @@
-# Accepted: credit-score-updated stops carrying the score value (recommended option on the user's open decision card,
-# customer-profile-kyc-core #13 36a01e2). No version of this spec has been released: it is on no main branch of the
-# catalog or the provider, and no consumer reads newCreditScore (checked across the fintechbankx repos), so no v2
-# topic or dual-publish is needed. Delete this file in the PR after this one merges.
-removed-property evt.cus.customer.credit-score-updated.v1 CustomerCreditScoreUpdated $.data.newCreditScore
-newly-required evt.cus.customer.credit-score-updated.v1 CustomerCreditScoreUpdated $.data.updatedAt
