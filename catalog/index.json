@@ -135,30 +135,49 @@
       "pendingImplementation": null
     },
     {
-      "file": null,
+      "file": "asyncapi/svc-of-consent-authorization.yaml",
       "serviceId": "svc-of-consent-authorization",
       "ownerRepo": "COPUR/fintechbankx-openfinance-consent-auth-service",
       "canonicalRepo": "fintechbankx-openfinance-consent-authorization-service",
       "owningSquad": "Consent and Authorization Squad",
       "namespace": "evt.of.consent",
-      "channels": [],
+      "channels": [
+        "evt.of.consent.created.v1",
+        "evt.of.consent.authorized.v1",
+        "evt.of.consent.revoked.v1",
+        "evt.of.consent.expired.v1",
+        "evt.of.consent.dlq.v1"
+      ],
       "providerSpecPath": null,
-      "implementationStatus": "no-contract",
-      "implementationNote": "Expected publisher; no event publishing code and no AsyncAPI contract in the provider repository yet. Add the contract in the provider repository first, then mirror it here. Open finance pillar plans evt.of.consent.created/authorized/revoked/expired.v1 (optional accountIds in data); personal-financial-data, business-financial-data and banking-metadata consume them.",
-      "pendingImplementation": null
+      "implementationStatus": "contract-only",
+      "implementationNote": "Consent lifecycle events exist in the domain; the provider default branch has no outbox or publisher, so nothing reaches Kafka from it. Consumed by svc-of-personal-financial-data, svc-of-business-financial-data and svc-of-banking-metadata (consent projections).",
+      "pendingImplementation": {
+        "branch": "claude/openfinance-deployable-ra36dq",
+        "repo": "COPUR/fintechbankx-openfinance-consent-auth-service",
+        "status": "outbox",
+        "note": "Transactional outbox, envelope mapping and relay on an unmerged branch; status changes to outbox when the provider merges it."
+      }
     },
     {
-      "file": null,
+      "file": "asyncapi/svc-of-payee-verification.yaml",
       "serviceId": "svc-of-payee-verification",
       "ownerRepo": "COPUR/fintechbankx-openfinance-payee-metadata-payee-verification",
       "canonicalRepo": "fintechbankx-openfinance-payee-verification-service",
       "owningSquad": "Payee and Metadata Squad",
       "namespace": "evt.of.payee",
-      "channels": [],
+      "channels": [
+        "evt.of.payee.verification-completed.v1",
+        "evt.of.payee.dlq.v1"
+      ],
       "providerSpecPath": null,
-      "implementationStatus": "no-contract",
-      "implementationNote": "Open finance pillar plans evt.of.payee.verification-completed.v1 (2026-10-08). No contract yet.",
-      "pendingImplementation": null
+      "implementationStatus": "contract-only",
+      "implementationNote": "The provider default branch matches against a seeded in-memory directory and publishes nothing.",
+      "pendingImplementation": {
+        "branch": "claude/openfinance-deployable-ra36dq",
+        "repo": "COPUR/fintechbankx-openfinance-payee-metadata-payee-verification",
+        "status": "outbox",
+        "note": "PostgreSQL decision record, transactional outbox and relay on an unmerged branch; status changes to outbox when the provider merges it."
+      }
     },
     {
       "file": null,
