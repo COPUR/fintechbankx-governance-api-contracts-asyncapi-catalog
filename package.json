@@ -1,0 +1,19 @@
+{
+  "name": "fintechbankx-governance-api-contracts-asyncapi-catalog",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AsyncAPI event contract catalog checks (index, naming, envelope, breaking changes).",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "check:catalog": "node scripts/ci/check-asyncapi-catalog.mjs",
+    "check:breaking": "bash scripts/ci/asyncapi-breaking.sh",
+    "test:unit": "node --test \"scripts/ci/test/*.test.mjs\"",
+    "test": "npm run check:catalog && npm run test:unit"
+  },
+  "devDependencies": {
+    "yaml": "2.9.1"
+  }
+}
