@@ -41,12 +41,12 @@
       "owningSquad": "Loan Lifecycle Squad",
       "namespace": "evt.ln.loan",
       "implementationStatus": "contract-only",
-      "implementationNote": "Domain events raised on the Loan aggregate; no publisher adapter or outbox on the default branch. The provider branch also consumes evt.pay.payment.loan-payment-completed.v1 and dead-letters to its own evt.ln.loan.dlq.v1.",
+      "implementationNote": "Domain events raised on the Loan aggregate; no publisher adapter or outbox on the default branch. The provider branch also consumes evt.pay.payment.loan-payment-completed.v1 (group cg.svc-ln-loan-lifecycle.loan-repayment-allocation.v1) and dead-letters to its own evt.ln.loan.dlq.v1, the only dead-letter topic among the lending and payments specs (consumer-owned DLQs, ADR-019).",
       "pendingImplementation": {
         "branch": "claude/project-thread-ty79y4",
         "repo": "COPUR/fintechbankx-lendingpayments-loan-lifecycle-core",
         "status": "outbox",
-        "note": "Transactional outbox, envelope factory, relay, repayment consumer and the provider copy api/asyncapi/svc-ln-loan-lifecycle.yaml on an unmerged branch; status changes to outbox when the provider merges it."
+        "note": "Transactional outbox, envelope factory, relay, repayment consumer and the provider copy api/asyncapi/svc-ln-loan-lifecycle.yaml on an unmerged branch (catalog copy mirrors commit 32fc282). The relay stays off (OUTBOX_RELAY_ENABLED=false) until these topics are catalogued and the consumer stays off until LOAN_REPAYMENT_CONSUMER_ENABLED=true; status changes to outbox when the provider merges it."
       },
       "channels": [
         "evt.ln.loan.created.v1",
@@ -71,12 +71,12 @@
       "owningSquad": "Payment Orchestration Squad",
       "namespace": "evt.pay.payment",
       "implementationStatus": "contract-only",
-      "implementationNote": "Domain events raised on the Payment aggregate; no publisher adapter or outbox on the default branch.",
+      "implementationNote": "Domain events raised on the Payment aggregate; no publisher adapter or outbox on the default branch. The service consumes nothing, so it lists no dead-letter topic (consumer-owned DLQs, ADR-019).",
       "pendingImplementation": {
         "branch": "claude/project-thread-ty79y4",
         "repo": "COPUR/fintechbankx-lendingpayments-payment-orchestration-initiation-settlement",
         "status": "outbox",
-        "note": "Transactional outbox, envelope factory and relay on an unmerged branch; status changes to outbox when the provider merges it."
+        "note": "PaymentEventEnvelopeFactory, transactional outbox (outbox_event) and OutboxRelay on an unmerged branch, with the provider copy api/asyncapi/svc-pay-initiation-settlement.yaml (catalog copy mirrors commit b743d48). The provider copy says info.version 1.1.0; the catalog keeps 1.0.0 because the spec is not on the catalog's main yet (pre-release rule). Status changes to outbox when the provider merges it."
       },
       "channels": [
         "evt.pay.payment.created.v1",
@@ -104,7 +104,7 @@
         "branch": "claude/lending-payments-deployable-zxfdi1",
         "repo": "COPUR/fintechbankx-lendingpayments-payment-orchestration-request-to-pay",
         "status": "outbox",
-        "note": "Transactional outbox and relay on evt.pay.rtp.created/accepted/rejected.v1 on an unmerged branch, with the provider copy api/asyncapi/svc-pay-request-to-pay.yaml; the legacy topic rtp.pay_requests.v1 is retired there (its publisher never started, so no dual-publish window). Status changes to outbox when the provider merges it."
+        "note": "Transactional outbox and relay on evt.pay.rtp.created/accepted/rejected.v1 on an unmerged branch, with the provider copy api/asyncapi/svc-pay-request-to-pay.yaml (catalog copy mirrors commit d6049d7); the legacy topic rtp.pay_requests.v1 is retired there with no dual-publish (its publisher never started, so no consumer ever received a record). Status changes to outbox when the provider merges it."
       },
       "channels": [
         "evt.pay.rtp.created.v1",
@@ -184,7 +184,7 @@
         "branch": "claude/lending-payments-deployable-zxfdi1",
         "repo": "COPUR/fintechbankx-lendingpayments-payment-orchestration-recurring-mandates",
         "status": "outbox",
-        "note": "MandateEventEnvelopeFactory, transactional outbox (sc_pay_recurring_mandates.mandate_outbox_event) and relay on an unmerged branch, with the provider copy api/asyncapi/svc-pay-recurring-mandates.yaml; status changes to outbox when the provider merges it."
+        "note": "MandateEventEnvelopeFactory, transactional outbox (sc_pay_recurring_mandates.mandate_outbox_event) and relay on an unmerged branch, with the provider copy api/asyncapi/svc-pay-recurring-mandates.yaml (catalog copy mirrors commit e608975); status changes to outbox when the provider merges it."
       }
     },
     {
@@ -201,12 +201,12 @@
       ],
       "providerSpecPath": null,
       "implementationStatus": "contract-only",
-      "implementationNote": "No publisher on the provider default branch. The service consumes nothing, so it lists no dead-letter topic (consumer-owned DLQs, ADR-019).",
+      "implementationNote": "No publisher on the provider default branch. The service consumes nothing, so it lists no dead-letter topic (consumer-owned DLQs, ADR-019). evt.pay.bulk.completed.v1 is declared but not emitted (x-emitted: false in the spec) until accepted items are handed to svc-pay-initiation-settlement.",
       "pendingImplementation": {
         "branch": "claude/lending-payments-deployable-zxfdi1",
         "repo": "COPUR/fintechbankx-lendingpayments-payment-orchestration-bulk-orchestration",
         "status": "outbox",
-        "note": "BulkFileEventEnvelopeFactory, transactional outbox (sc_pay_bulk_orchestration.outbox_event) and relay on an unmerged branch, with the provider copy api/asyncapi/svc-pay-bulk-orchestration.yaml; status changes to outbox when the provider merges it."
+        "note": "BulkFileEventEnvelopeFactory, transactional outbox (sc_pay_bulk_orchestration.outbox_event) and relay on an unmerged branch, with the provider copy api/asyncapi/svc-pay-bulk-orchestration.yaml (catalog copy mirrors commit 4a9df58). It writes Accepted and Rejected (reason ALL_ITEMS_REJECTED or CONSENT_NOT_USABLE) only; Completed stays unemitted. Status changes to outbox when the provider merges it."
       }
     }
   ]
