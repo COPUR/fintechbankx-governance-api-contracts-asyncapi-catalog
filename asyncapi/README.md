@@ -13,7 +13,7 @@ record key is `aggregateId`. Naming follows
 | [svc-ln-loan-lifecycle.yaml](svc-ln-loan-lifecycle.yaml) | Loan lifecycle | `evt.ln.loan` | `created`, `approved`, `rejected`, `disbursed`, `cancelled`, `payment-made`, `fully-paid` | Domain events raised; no publisher adapter |
 | [svc-pay-initiation-settlement.yaml](svc-pay-initiation-settlement.yaml) | Payment initiation and settlement | `evt.pay.payment` | `created`, `processing-started`, `completed`, `failed`, `cancelled`, `refunded`, `loan-payment-created`, `loan-payment-completed`, `loan-payment-failed` | Domain events raised; no publisher adapter |
 | [svc-pay-request-to-pay.yaml](svc-pay-request-to-pay.yaml) | Request to pay | `evt.pay.rtp` | `created`, `accepted`, `rejected` | Published to legacy `rtp.pay_requests.v1` without envelope |
-| [svc-cus-profile-kyc.yaml](svc-cus-profile-kyc.yaml) | Customer profile and KYC | `evt.cus.customer` | `created`, `contact-updated`, `credit-limit-updated`, `credit-reserved`, `credit-released`, `credit-score-updated` | Transactional outbox and relay (customer-profile-kyc-core PR #12) |
+| [svc-cus-profile-kyc.yaml](svc-cus-profile-kyc.yaml) | Customer profile and KYC | `evt.cus.customer` | `created`, `contact-updated`, `credit-limit-updated`, `credit-reserved`, `credit-released`, `credit-score-updated`, `kyc-status-changed` | Transactional outbox and relay (customer-profile-kyc-core PR #13) |
 | [svc-rsk-decisioning.yaml](svc-rsk-decisioning.yaml) | Risk decisioning | `evt.rsk.risk` | `assessed` | Transactional outbox and relay (risk-decisioning-core) |
 | [svc-cmp-evidence.yaml](svc-cmp-evidence.yaml) | Compliance evidence | `evt.cmp.compliance` | `screened` | Transactional outbox and relay (compliance-evidence-core) |
 
@@ -61,7 +61,7 @@ Status today (Proposed):
 | `svc-pay-recurring-mandates` | `evt.pay.mandate` | `no-contract` | expected |
 | `svc-pay-bulk-orchestration` | `evt.pay.bulk` | `no-contract` | expected |
 
-`providerSpecPath` is set where the provider carries its own AsyncAPI file (risk and compliance, on the unmerged provider branch named above; the catalog copy is the provider file unchanged). Every other entry is `null`.
+`providerSpecPath` is set where the provider carries its own AsyncAPI file (customer, risk and compliance, on the unmerged provider branch named above; the catalog copy is the provider file unchanged). Every other entry is `null`.
 
 ## Checks
 

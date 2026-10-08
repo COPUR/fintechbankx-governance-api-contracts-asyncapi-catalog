@@ -29,9 +29,10 @@
         "evt.cus.customer.credit-limit-updated.v1",
         "evt.cus.customer.credit-reserved.v1",
         "evt.cus.customer.credit-released.v1",
-        "evt.cus.customer.credit-score-updated.v1"
+        "evt.cus.customer.credit-score-updated.v1",
+        "evt.cus.customer.kyc-status-changed.v1"
       ],
-      "providerSpecPath": null
+      "providerSpecPath": "api/asyncapi/svc-cus-profile-kyc.yaml"
     },
     {
       "file": "asyncapi/svc-ln-loan-lifecycle.yaml",
