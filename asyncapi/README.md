@@ -15,7 +15,8 @@ record key is `aggregateId`. Naming follows
 | [svc-pay-request-to-pay.yaml](svc-pay-request-to-pay.yaml) | Request to pay | `evt.pay.rtp` | `created`, `accepted`, `rejected` | Published to legacy `rtp.pay_requests.v1` without envelope |
 | [svc-cus-profile-kyc.yaml](svc-cus-profile-kyc.yaml) | Customer profile and KYC | `evt.cus.customer` | `created`, `contact-updated`, `credit-limit-updated`, `credit-reserved`, `credit-released`, `credit-score-updated` | Published after save via an external `DomainEventPublisher`; no outbox |
 
-Full topic names are `<namespace>.<event>.v1`. Each namespace also has a dead-letter topic `<namespace>.dlq.v1`.
+Full topic names are `<namespace>.<event>.v1`. A namespace whose service consumes events also has a dead-letter topic
+`<namespace>.dlq.v1`; `evt.of.consent` and `evt.of.payee` consume nothing, so they declare none.
 
 Dead-letter topics are consumer-owned (ADR-019 in the ADR repo): a consumer that gives up on a record after bounded
 retries writes it to the DLQ in **its own** namespace, never to the source topic's namespace. For example, the loan
@@ -43,6 +44,7 @@ plus "expected" entries (`file: null`) for services that will publish but have n
 | `ownerRepo`, `canonicalRepo` | Actual GitHub repository (`COPUR/...`) and canonical name used in governance docs |
 | `channels` | Full topic addresses declared by the spec, dead-letter topic included |
 | `providerSpecPath` | Path of the AsyncAPI file in the provider repository; `null` while the provider has none |
+| `providerSpecCommit` | Optional. Provider commit the catalog copy was taken from, when `providerSpecPath` is set |
 | `implementationStatus` | `contract-only`, `publishes-legacy`, `outbox` or `no-contract` (see `statusValues` in the file) |
 | `pendingImplementation` | Unmerged provider branch that changes the status, if any |
 
@@ -56,11 +58,15 @@ Status today (Proposed):
 | `svc-pay-request-to-pay` | `evt.pay.rtp` | `publishes-legacy` | legacy topic `rtp.pay_requests.v1`, no envelope |
 | `svc-rsk-decisioning` | `evt.rsk.risk` | `no-contract` | expected |
 | `svc-cmp-evidence` | `evt.cmp.compliance` | `no-contract` | expected |
-| `svc-of-consent-authorization` | `evt.of.consent` | `no-contract` | expected |
+| `svc-of-consent-authorization` | `evt.of.consent` | `contract-only` | outbox and relay on unmerged provider branch `claude/openfinance-deployable-ra36dq` |
+| `svc-of-payee-verification` | `evt.of.payee` | `contract-only` | outbox and relay on unmerged provider branch `claude/openfinance-deployable-ra36dq` |
 | `svc-pay-recurring-mandates` | `evt.pay.mandate` | `no-contract` | expected |
 | `svc-pay-bulk-orchestration` | `evt.pay.bulk` | `no-contract` | expected |
 
-No provider repository carries its own AsyncAPI file yet, so every `providerSpecPath` is `null`.
+Consent authorization and payee verification carry their own AsyncAPI file on the unmerged provider branch
+`claude/openfinance-deployable-ra36dq`; their catalog copies mirror it at `providerSpecCommit`. The payee copy replaces the
+provider's inline envelope and headers with `$ref`s to `common/event-envelope.yaml` (same fields, types and patterns). Every
+other `providerSpecPath` is `null`.
 
 ## Checks
 

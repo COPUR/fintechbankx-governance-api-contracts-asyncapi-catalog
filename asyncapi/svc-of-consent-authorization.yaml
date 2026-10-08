@@ -1,65 +1,96 @@
 # AsyncAPI contract for svc-of-consent-authorization.
-# Status: Proposed. The provider repository owns this contract; this catalog mirrors it.
-# Naming: docs/NAMING_CONVENTION_DDD_EDA_BUSINESS_CONTEXT.md
-# Validate: npx -y @asyncapi/cli@2.13.0 validate asyncapi/svc-of-consent-authorization.yaml
+# Status: Proposed. The provider repository owns this contract; the asyncapi catalog mirrors it.
+# Naming: docs/NAMING_CONVENTION_DDD_EDA_BUSINESS_CONTEXT.md (enterprise-architecture repository)
+# Validate: npx -y @asyncapi/cli@2.13.0 validate api/asyncapi/svc-of-consent-authorization.yaml
+# common/event-envelope.yaml is a verbatim copy of the catalog's shared envelope.
 asyncapi: 3.0.0
 id: urn:fintechbankx:asyncapi:svc-of-consent-authorization
 info:
   title: svc-of-consent-authorization events
   version: 1.0.0
-  description: 'Event contract for svc-of-consent-authorization (repository fintechbankx-openfinance-consent-auth-service,
-    canonical name fintechbankx-openfinance-consent-authorization-service).
-
+  description: |-
+    Consent facts published by svc-of-consent-authorization (repository fintechbankx-openfinance-consent-auth-service).
 
     Status: Proposed. Owner: Consent and Authorization Squad, Open Finance Tribe. Event namespace: `evt.of.consent`.
 
+    Implementation status: implemented. ConsentManagementService raises ConsentLifecycleEvent after each saved state change;
+    OutboxConsentEventAdapter writes the envelope to sc_of_consent_authorization.outbox_event in the same transaction and
+    OutboxRelay publishes it. db/backfill enqueues one current-state event per consent migrated from the monolith.
 
-    Implementation status: contract only on the provider default branch; the transactional outbox and relay are on the provider
-    branch claude/openfinance-deployable-ra36dq.
+    Every message uses the standard envelope (common/event-envelope.yaml). Record key is the consentId (= aggregateId),
+    so all events of one consent land on one partition in order; the outbox relay also keeps per-consent order when a
+    row is retried or parked. aggregateVersion is the consent row's optimistic-lock version after the change, monotonic
+    per consent; because each transition has its own topic, consumers must ignore an event whose aggregateVersion is not
+    newer than the one they stored.
 
+    A consent is usable only when status is AUTHORIZED and expiresAt is in the future. accountIds are the accounts the
+    customer selected when authorizing, never the participant's request; an empty accountIds list means the consent
+    grants access to no account at all (it does not mean "all accounts").
 
-    Every consent fact carries the full current consent state (ids and facts only), so consumers keep a projection by upserting
-    on consentId and ignoring an event whose aggregateVersion is not newer than the stored one; events of one consent travel
-    on different topics and may arrive out of order. Consumers: svc-of-personal-financial-data, svc-of-business-financial-data
-    and svc-of-banking-metadata (see x-consumers on each channel). Retention is 90 days so projections can be rebuilt by replaying
-    from earliest.
+    Retention: a consent may live at most 90 days from creation (enforced when it is created), and every topic keeps
+    records for 90 days with cleanup.policy=delete. A consumer that rebuilds its projection by replaying from the
+    earliest offset therefore sees the latest event of every consent that can still be in force.
 
+    Consumers (x-consumers below; each consumer owns its consumer group and its dead-letter topic, this producer
+    publishes no DLQ):
+    - svc-of-personal-financial-data (retail account data), group cg.svc-of-personal-financial-data.consent-projection.v1,
+      DLQ evt.of.account.dlq.v1.
+    - svc-of-business-financial-data (corporate account data), group cg.svc-of-business-financial-data.consent-projection.v1,
+      DLQ evt.of.corporate.dlq.v1.
+    - svc-of-banking-metadata (banking metadata), group cg.svc-of-banking-metadata.consent-projection.v1,
+      DLQ evt.of.metadata.dlq.v1.
 
-    Every message uses the standard envelope (common/event-envelope.yaml). Record key is the aggregateId. Adding an optional
-    field is a minor change; any removal, rename or type change is a new major version on a new topic with dual-publish.'
+    Payment services do not consume these topics. svc-pay-bulk-orchestration today, and the recurring-mandates service
+    once it is onboarded, check a consent synchronously with GET /api/v1/consents/{consentId} (internal API,
+    api/openapi/consent-authorization-service-internal.yaml) at the moment they use it.
+
+    Adding an optional field is a minor change; any removal, rename or type change is a new major version on a new topic
+    with dual-publish.
   tags:
-  - name: consent
+  - name: open-finance
   - name: evt.of.consent
   x-service-id: svc-of-consent-authorization
   x-event-namespace: evt.of.consent
   x-owning-squad: Consent and Authorization Squad
+  x-consumers:
+  - service-id: svc-of-personal-financial-data
+    domain: retail account data
+    consumer-group: cg.svc-of-personal-financial-data.consent-projection.v1
+    dead-letter-topic: evt.of.account.dlq.v1
+    channels: [created, authorized, revoked, expired]
+  - service-id: svc-of-business-financial-data
+    domain: corporate account data
+    consumer-group: cg.svc-of-business-financial-data.consent-projection.v1
+    dead-letter-topic: evt.of.corporate.dlq.v1
+    channels: [created, authorized, revoked, expired]
+  - service-id: svc-of-banking-metadata
+    domain: banking metadata
+    consumer-group: cg.svc-of-banking-metadata.consent-projection.v1
+    dead-letter-topic: evt.of.metadata.dlq.v1
+    channels: [created, authorized, revoked, expired]
+  x-synchronous-readers:
+  - service-id: svc-pay-bulk-orchestration
+    status: allowed
+    operation: GET /api/v1/consents/{consentId}
+  - service-id: recurring-mandates service
+    status: planned, added to the allow-list once confirmed
+    operation: GET /api/v1/consents/{consentId}
 defaultContentType: application/json
 servers:
-  msk:
+  kafka:
     host: '{bootstrapServers}'
     protocol: kafka-secure
-    description: Amazon MSK cluster of the FinTechBankX event platform (svc-evt-streaming) on AWS. TLS in transit, SASL_SSL
-      with mechanism AWS_MSK_IAM using the service's IRSA role (ADR-024, platform contract 2026-10-08).
+    description: >-
+      FinTechBankX event platform. On AWS, Amazon MSK with TLS and IAM client authentication
+      (SASL_SSL / AWS_MSK_IAM) through the service's IRSA role; in-cluster Strimzi with TLS client certificates.
     variables:
       bootstrapServers:
-        description: MSK IAM bootstrap brokers (port 9098), injected per environment by the platform.
-    security:
-    - $ref: '#/components/securitySchemes/mskIam'
-  local:
-    host: '{bootstrapServers}'
-    protocol: kafka-secure
-    description: Strimzi cluster in namespace kafka, for local and non-AWS environments only. Mutual TLS with Strimzi-issued
-      client certificates.
-    variables:
-      bootstrapServers:
-        description: Strimzi TLS bootstrap service, injected per environment.
-    security:
-    - $ref: '#/components/securitySchemes/mtls'
+        description: Bootstrap servers, injected per environment by the platform.
 channels:
   created:
     address: evt.of.consent.created.v1
     title: evt.of.consent.created.v1
-    description: OpenFinance.Consent.Created.v1. A consent was requested by a TPP and is awaiting PSU authorization.
+    description: OpenFinance.Consent.Created.v1. A TPP requested a consent; it awaits the customer's authorization.
     messages:
       ConsentCreated:
         $ref: '#/components/messages/ConsentCreated'
@@ -74,20 +105,10 @@ channels:
           retention.ms: 7776000000
           max.message.bytes: 1048576
         bindingVersion: 0.5.0
-    x-consumers:
-    - serviceId: svc-of-personal-financial-data
-      consumerGroup: cg.svc-of-personal-financial-data.consent-projection.v1
-      deadLetterTopic: evt.of.account.dlq.v1
-    - serviceId: svc-of-business-financial-data
-      consumerGroup: cg.svc-of-business-financial-data.consent-projection.v1
-      deadLetterTopic: evt.of.corporate.dlq.v1
-    - serviceId: svc-of-banking-metadata
-      consumerGroup: cg.svc-of-banking-metadata.consent-projection.v1
-      deadLetterTopic: evt.of.metadata.dlq.v1
   authorized:
     address: evt.of.consent.authorized.v1
     title: evt.of.consent.authorized.v1
-    description: OpenFinance.Consent.Authorized.v1. The PSU authorized the consent; it is usable until expiresAt.
+    description: OpenFinance.Consent.Authorized.v1. The customer authorized the consent; it is usable until expiresAt.
     messages:
       ConsentAuthorized:
         $ref: '#/components/messages/ConsentAuthorized'
@@ -102,20 +123,10 @@ channels:
           retention.ms: 7776000000
           max.message.bytes: 1048576
         bindingVersion: 0.5.0
-    x-consumers:
-    - serviceId: svc-of-personal-financial-data
-      consumerGroup: cg.svc-of-personal-financial-data.consent-projection.v1
-      deadLetterTopic: evt.of.account.dlq.v1
-    - serviceId: svc-of-business-financial-data
-      consumerGroup: cg.svc-of-business-financial-data.consent-projection.v1
-      deadLetterTopic: evt.of.corporate.dlq.v1
-    - serviceId: svc-of-banking-metadata
-      consumerGroup: cg.svc-of-banking-metadata.consent-projection.v1
-      deadLetterTopic: evt.of.metadata.dlq.v1
   revoked:
     address: evt.of.consent.revoked.v1
     title: evt.of.consent.revoked.v1
-    description: OpenFinance.Consent.Revoked.v1. The consent was revoked by the PSU or the TPP and must no longer be honoured.
+    description: OpenFinance.Consent.Revoked.v1. The consent was revoked by the TPP or the customer; it can no longer be used.
     messages:
       ConsentRevoked:
         $ref: '#/components/messages/ConsentRevoked'
@@ -130,20 +141,10 @@ channels:
           retention.ms: 7776000000
           max.message.bytes: 1048576
         bindingVersion: 0.5.0
-    x-consumers:
-    - serviceId: svc-of-personal-financial-data
-      consumerGroup: cg.svc-of-personal-financial-data.consent-projection.v1
-      deadLetterTopic: evt.of.account.dlq.v1
-    - serviceId: svc-of-business-financial-data
-      consumerGroup: cg.svc-of-business-financial-data.consent-projection.v1
-      deadLetterTopic: evt.of.corporate.dlq.v1
-    - serviceId: svc-of-banking-metadata
-      consumerGroup: cg.svc-of-banking-metadata.consent-projection.v1
-      deadLetterTopic: evt.of.metadata.dlq.v1
   expired:
     address: evt.of.consent.expired.v1
     title: evt.of.consent.expired.v1
-    description: OpenFinance.Consent.Expired.v1. The consent passed its expiry and must no longer be honoured.
+    description: OpenFinance.Consent.Expired.v1. The consent passed expiresAt and was marked EXPIRED.
     messages:
       ConsentExpired:
         $ref: '#/components/messages/ConsentExpired'
@@ -158,16 +159,6 @@ channels:
           retention.ms: 7776000000
           max.message.bytes: 1048576
         bindingVersion: 0.5.0
-    x-consumers:
-    - serviceId: svc-of-personal-financial-data
-      consumerGroup: cg.svc-of-personal-financial-data.consent-projection.v1
-      deadLetterTopic: evt.of.account.dlq.v1
-    - serviceId: svc-of-business-financial-data
-      consumerGroup: cg.svc-of-business-financial-data.consent-projection.v1
-      deadLetterTopic: evt.of.corporate.dlq.v1
-    - serviceId: svc-of-banking-metadata
-      consumerGroup: cg.svc-of-banking-metadata.consent-projection.v1
-      deadLetterTopic: evt.of.metadata.dlq.v1
 operations:
   publishConsentCreated:
     action: send
@@ -207,12 +198,11 @@ components:
       $ref: ./common/event-envelope.yaml#/EventEnvelope
     EventHeaders:
       $ref: ./common/event-envelope.yaml#/EventHeaders
-    DeadLetterHeaders:
-      $ref: ./common/event-envelope.yaml#/DeadLetterHeaders
     ConsentFactData:
       type: object
-      description: Current state of the consent after the change (same shape for every consent fact, so a projection can upsert
-        from any of them).
+      description: >-
+        Current state of the consent after the change. Ids and facts only: no names, no raw account numbers
+        and no revocation free text. Every key below is always emitted (nullable ones as null), so all are required.
       additionalProperties: true
       properties:
         consentId:
@@ -222,29 +212,51 @@ components:
         participantId:
           type: string
           minLength: 1
-          description: TPP (participant) client id the consent was granted to.
+          description: TPP (OAuth client) id that requested the consent.
         customerId:
           type: string
           minLength: 1
-          description: PSU's internal customer id. An identifier only; no names or contact data.
+          description: The PSU's internal customer id.
         scopes:
           type: array
+          description: >-
+            Normalised permission codes as the service stores them: upper case, separators removed (ReadAccounts is
+            published as READACCOUNTS), sorted, no duplicates.
+          uniqueItems: true
           items:
             type: string
-            minLength: 1
-          uniqueItems: true
-          minItems: 1
-          description: Granted permission scopes, sorted.
+            enum:
+            - READACCOUNTS
+            - READBALANCES
+            - READTRANSACTIONS
+            - READBENEFICIARIES
+            - READDIRECTDEBITS
+            - READSTANDINGORDERS
+            - READPARTIES
+            - READSCHEDULEDPAYMENTS
+            - READMETADATA
+            - READPOLICIES
+            - READPRODUCTS
+            - READATMS
+            - INITIATEPAYMENTS
+            - INITIATEBULKPAYMENTS
+            - INITIATEVRP
         accountIds:
           type: array
+          description: >-
+            Internal account ids the customer selected when authorizing, sorted, no duplicates. The participant's
+            requested accounts are never published. An empty list means the consent grants access to no account:
+            it is empty on Created (nothing selected yet), and stays empty on Revoked or Expired when the consent was
+            never authorized. An authorized consent with an account-reading scope always has at least one account.
+          uniqueItems: true
           items:
             type: string
             minLength: 1
-          uniqueItems: true
-          description: Accounts the consent is bound to; may be empty when the consent is not account-scoped.
+            maxLength: 64
         purpose:
           type: string
-          description: Declared purpose of the consent. Must not contain personal data.
+          minLength: 1
+          description: Purpose code or text declared by the TPP; always present.
         status:
           type: string
           enum:
@@ -255,6 +267,7 @@ components:
         expiresAt:
           type: string
           format: date-time
+          description: At most 90 days after createdAt.
         createdAt:
           type: string
           format: date-time
@@ -263,25 +276,30 @@ components:
           - string
           - 'null'
           format: date-time
+          description: Null until the customer authorizes. The key is always present.
         revokedAt:
           type:
           - string
           - 'null'
           format: date-time
+          description: Null unless the consent was revoked. The key is always present.
       required:
       - consentId
       - participantId
       - customerId
       - scopes
       - accountIds
+      - purpose
       - status
       - expiresAt
       - createdAt
+      - authorizedAt
+      - revokedAt
   messages:
     ConsentCreated:
       name: ConsentCreated
       title: OpenFinance.Consent.Created.v1
-      summary: A consent was requested by a TPP and is awaiting PSU authorization.
+      summary: A TPP requested a consent; it awaits the customer's authorization.
       contentType: application/json
       headers:
         $ref: '#/components/schemas/EventHeaders'
@@ -295,7 +313,12 @@ components:
             producer:
               const: svc-of-consent-authorization
             data:
-              $ref: '#/components/schemas/ConsentFactData'
+              allOf:
+              - $ref: '#/components/schemas/ConsentFactData'
+              - type: object
+                properties:
+                  status:
+                    const: PENDING
       bindings:
         kafka:
           key:
@@ -306,7 +329,7 @@ components:
     ConsentAuthorized:
       name: ConsentAuthorized
       title: OpenFinance.Consent.Authorized.v1
-      summary: The PSU authorized the consent; it is usable until expiresAt.
+      summary: The customer authorized the consent; it is usable until expiresAt.
       contentType: application/json
       headers:
         $ref: '#/components/schemas/EventHeaders'
@@ -320,7 +343,12 @@ components:
             producer:
               const: svc-of-consent-authorization
             data:
-              $ref: '#/components/schemas/ConsentFactData'
+              allOf:
+              - $ref: '#/components/schemas/ConsentFactData'
+              - type: object
+                properties:
+                  status:
+                    const: AUTHORIZED
       bindings:
         kafka:
           key:
@@ -331,7 +359,7 @@ components:
     ConsentRevoked:
       name: ConsentRevoked
       title: OpenFinance.Consent.Revoked.v1
-      summary: The consent was revoked by the PSU or the TPP and must no longer be honoured.
+      summary: The consent was revoked by the TPP or the customer; it can no longer be used.
       contentType: application/json
       headers:
         $ref: '#/components/schemas/EventHeaders'
@@ -345,7 +373,12 @@ components:
             producer:
               const: svc-of-consent-authorization
             data:
-              $ref: '#/components/schemas/ConsentFactData'
+              allOf:
+              - $ref: '#/components/schemas/ConsentFactData'
+              - type: object
+                properties:
+                  status:
+                    const: REVOKED
       bindings:
         kafka:
           key:
@@ -356,7 +389,7 @@ components:
     ConsentExpired:
       name: ConsentExpired
       title: OpenFinance.Consent.Expired.v1
-      summary: The consent passed its expiry and must no longer be honoured.
+      summary: The consent passed expiresAt and was marked EXPIRED.
       contentType: application/json
       headers:
         $ref: '#/components/schemas/EventHeaders'
@@ -370,7 +403,12 @@ components:
             producer:
               const: svc-of-consent-authorization
             data:
-              $ref: '#/components/schemas/ConsentFactData'
+              allOf:
+              - $ref: '#/components/schemas/ConsentFactData'
+              - type: object
+                properties:
+                  status:
+                    const: EXPIRED
       bindings:
         kafka:
           key:
@@ -378,13 +416,3 @@ components:
             description: aggregateId (consentId).
           bindingVersion: 0.5.0
       x-source-class: com.enterprise.openfinance.consentauthorization.domain.event.ConsentLifecycleEvent
-  securitySchemes:
-    mskIam:
-      type: userPassword
-      description: SASL_SSL with SASL mechanism AWS_MSK_IAM. There is no user or password; the client signs with the AWS credentials
-        of its IRSA role, and a topic-scoped IAM policy (terraform module msk-client-access) grants produce or consume rights.
-        AsyncAPI has no IAM scheme type, so userPassword stands for the SASL family.
-      x-sasl-mechanism: AWS_MSK_IAM
-    mtls:
-      type: X509
-      description: Mutual TLS with Strimzi-issued client certificates (local and non-AWS clusters only).
