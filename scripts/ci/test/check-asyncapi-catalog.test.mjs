@@ -143,3 +143,18 @@ test('a dead-letter topic is allowed when the spec consumes a topic', () => {
   const specs = { 'svc-tst-sample.yaml': doc, 'svc-tst-provider.yaml': spec({ serviceId: 'svc-tst-provider', namespace: 'evt.tst.provider' }) };
   assert.deepEqual(errorsOf({ specs, services: [entry({ channels: ['evt.tst.sample.created.v1', 'evt.tst.sample.dlq.v1'], consumes: ['evt.tst.provider.created.v1'] }), provider()] }), []);
 });
+
+test('a dead-letter message may carry raw bytes but must declare the common dead-letter headers', () => {
+  const build = (message) => {
+    const doc = consumerSpec('evt.tst.provider.created.v1');
+    doc.components.messages.DeadLetter = message;
+    doc.channels.deadLetter = deadLetterChannel();
+    doc.operations.publishDeadLetter = { action: 'send', channel: { $ref: '#/channels/deadLetter' } };
+    const specs = { 'svc-tst-sample.yaml': doc, 'svc-tst-provider.yaml': spec({ serviceId: 'svc-tst-provider', namespace: 'evt.tst.provider' }) };
+    return errorsOf({ specs, services: [entry({ channels: ['evt.tst.sample.created.v1', 'evt.tst.sample.dlq.v1'], consumes: ['evt.tst.provider.created.v1'] }), provider()] });
+  };
+  const headers = { $ref: './common/event-envelope.yaml#/DeadLetterHeaders' };
+  assert.deepEqual(build({ contentType: 'application/octet-stream', headers, payload: { type: 'string', format: 'binary' } }), []);
+  const missing = build({ contentType: 'application/octet-stream', payload: { type: 'string', format: 'binary' } });
+  assert.ok(missing.some((e) => /dead-letter headers must use the common DeadLetterHeaders/.test(e)), missing.join('\n'));
+});

@@ -15,14 +15,17 @@ record key is `aggregateId`. Naming follows
 | [svc-pay-request-to-pay.yaml](svc-pay-request-to-pay.yaml) | Request to pay | `evt.pay.rtp` | `created`, `accepted`, `rejected` | Published to legacy `rtp.pay_requests.v1` without envelope |
 | [svc-cus-profile-kyc.yaml](svc-cus-profile-kyc.yaml) | Customer profile and KYC | `evt.cus.customer` | `created`, `contact-updated`, `credit-limit-updated`, `credit-reserved`, `credit-released`, `credit-score-updated` | Published after save via an external `DomainEventPublisher`; no outbox |
 
-Full topic names are `<namespace>.<event>.v1`. Each namespace also has a dead-letter topic `<namespace>.dlq.v1`.
+Full topic names are `<namespace>.<event>.v1`. A namespace whose service consumes a topic also has a dead-letter topic `<namespace>.dlq.v1`.
 
 Dead-letter topics are consumer-owned (ADR-019 in the ADR repo): a consumer that gives up on a record after bounded
 retries writes it to the DLQ in **its own** namespace, never to the source topic's namespace. For example, the loan
 service dead-letters a failed `evt.pay.payment.completed.v1` record to `evt.ln.loan.dlq.v1`, not to
 `evt.pay.payment.dlq.v1`. The `DeadLetterHeaders` in [common/event-envelope.yaml](common/event-envelope.yaml)
 (`dlq-original-topic`, `dlq-original-partition`, `dlq-original-offset`, `dlq-consumer-group`) identify the source,
-so the owning team can replay it. A spec lists its DLQ as a `send` channel in its own namespace; the catalog check
+so the owning team can replay it. Every dead-letter header value is UTF-8 text, numbers as decimal text, because
+Kafka header values are bytes. A dead-letter message keeps the poison record's value and key unchanged, so its
+payload need not be the envelope (it may be raw bytes); its headers must be the common `DeadLetterHeaders`.
+A spec lists its DLQ as a `send` channel in its own namespace; the catalog check
 rejects a send channel outside it. Topics are provisioned by `scripts/kafka/create-topics.sh` in
 `fintechbankx-platform-event-streaming-kafka`.
 

@@ -51,7 +51,10 @@ export function spec({ serviceId = 'svc-tst-sample', namespace = 'evt.tst.sample
             ],
           },
         },
-        DeadLetter: { payload: { $ref: '#/components/schemas/EventEnvelope' } },
+        DeadLetter: {
+          headers: { $ref: './common/event-envelope.yaml#/DeadLetterHeaders' },
+          payload: { $ref: '#/components/schemas/EventEnvelope' },
+        },
       },
     },
   };

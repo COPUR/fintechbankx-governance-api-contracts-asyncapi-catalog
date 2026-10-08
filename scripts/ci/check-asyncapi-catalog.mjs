@@ -15,6 +15,8 @@
 //   - a channel address is outside the spec's namespace, or its Kafka binding topic differs from the address;
 //   - the index channel list differs from the spec's channel addresses;
 //   - a message payload does not use the common envelope ($ref to common/event-envelope.yaml#/EventEnvelope);
+//     a dead-letter channel (*.dlq.vN) is exempt, since it keeps the poison record unchanged, but its messages
+//     must declare the common DeadLetterHeaders as headers;
 //   - the same topic address is published by two specs.
 // Consumed channels (every operation on the channel is `receive`) may sit in another namespace. They must be
 // listed in the entry's optional `consumes` array, are not counted as published, and when the owning
@@ -25,7 +27,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import {
-  TOPIC_RE, NAMESPACE_RE, loadYaml, usesEnvelope, createResolver, listChannels,
+  TOPIC_RE, NAMESPACE_RE, loadYaml, usesEnvelope, usesDeadLetterHeaders, DLQ_ADDRESS_RE, createResolver, listChannels,
 } from './lib/asyncapi-model.mjs';
 
 export const STATUSES = ['contract-only', 'publishes-legacy', 'outbox', 'no-contract'];
@@ -172,14 +174,21 @@ export function checkCatalog(root) {
         topicOwner.set(addr, f);
       }
       if (ch.messages.length === 0) err(`${where}: channel declares no messages`);
+      const deadLetter = DLQ_ADDRESS_RE.test(addr ?? '');
       for (const m of ch.messages) {
-        if (!usesEnvelope(m.message?.payload, doc)) {
+        if (deadLetter) {
+          // A dead-letter record keeps the poison record's value unchanged, which may not even parse as an
+          // envelope; what the DLQ promises is the dead-letter headers (ADR-019).
+          if (!usesDeadLetterHeaders(m.message?.headers, doc)) {
+            err(`${where} message ${m.key}: dead-letter headers must use the common DeadLetterHeaders ($ref to common/event-envelope.yaml#/DeadLetterHeaders)`);
+          }
+        } else if (!usesEnvelope(m.message?.payload, doc)) {
           err(`${where} message ${m.key}: payload does not use the common envelope ($ref to common/event-envelope.yaml#/EventEnvelope)`);
         }
       }
     }
     for (const [mKey, msg] of Object.entries(doc?.components?.messages ?? {})) {
-      if (!usesEnvelope(msg?.payload, doc)) {
+      if (!usesEnvelope(msg?.payload, doc) && !usesDeadLetterHeaders(msg?.headers, doc)) {
         err(`${f} components.messages.${mKey}: payload does not use the common envelope`);
       }
     }
