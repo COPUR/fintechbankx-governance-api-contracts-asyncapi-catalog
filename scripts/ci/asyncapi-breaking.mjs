@@ -15,6 +15,14 @@
 //   newly-required     a payload property is required now but was optional or absent at the base
 //   changed-type       the declared JSON type(s) of a payload property changed
 //   removed-enum-value an enum value present at the base is gone
+//   no-longer-required a payload property was required at the base and is optional now (consumers rely on it)
+//   changed-const      a const was added, removed or changed (eventType, producer, fixed values)
+//   changed-constraint a validation keyword (pattern, format, min/max length, range, items) was added,
+//                      removed or changed; replayed records may no longer validate, or consumers get values
+//                      they reject
+//   changed-binding    the channel's Kafka binding changed its topic, partitions or cleanup.policy, or
+//                      lowered retention.ms (ordering per key, compaction and replay depend on them)
+//   changed-message-key the message's Kafka key schema changed (descriptions excepted)
 //
 // Accepted exceptions: asyncapi/<spec-name>.accepted-breaking.txt (same name as the spec without the
 // extension), one finding key per line as printed below; '#' starts a comment. Use it only with a
@@ -25,7 +33,34 @@ import { execFileSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import { loadYaml, createResolver, flattenPayload, listChannels } from './lib/asyncapi-model.mjs';
 
-/** Builds Map<"<address> <messageKey>", Map<path, info>> for one spec. */
+// Drops descriptive keywords so only the shape of a schema is compared.
+const shape = (node) => {
+  if (Array.isArray(node)) return node.map(shape);
+  if (node === null || typeof node !== 'object') return node;
+  return Object.fromEntries(
+    Object.keys(node)
+      .filter((k) => !['description', 'title', 'examples', 'example'].includes(k))
+      .sort()
+      .map((k) => [k, shape(node[k])]),
+  );
+};
+
+/** The Kafka binding fields a consumer depends on. */
+function kafkaBinding(channel) {
+  const k = channel?.bindings?.kafka ?? {};
+  const cfg = k.topicConfiguration ?? {};
+  const policy = cfg['cleanup.policy'];
+  return {
+    topic: k.topic,
+    partitions: k.partitions,
+    'cleanup.policy': policy === undefined ? undefined : [].concat(policy).sort().join(','),
+    'retention.ms': cfg['retention.ms'],
+  };
+}
+
+/**
+ * Builds Map<address, { binding, messages: Map<messageKey, { props: Map<path, info>, key }> }> for one spec.
+ */
 export function describeSpec(file, readFile) {
   const resolver = createResolver(readFile);
   const doc = resolver.load(file);
@@ -35,9 +70,13 @@ export function describeSpec(file, readFile) {
     const messages = new Map();
     for (const m of ch.messages) {
       const payload = m.message?.payload;
-      messages.set(m.key, payload ? flattenPayload(payload, m.ctx, resolver) : new Map());
+      const keySchema = m.message?.bindings?.kafka?.key;
+      messages.set(m.key, {
+        props: payload ? flattenPayload(payload, m.ctx, resolver) : new Map(),
+        key: keySchema === undefined ? undefined : JSON.stringify(shape(resolver.deref(keySchema, m.ctx).node)),
+      });
     }
-    channels.set(address, messages);
+    channels.set(address, { binding: kafkaBinding(ch.channel), messages });
   }
   return channels;
 }
@@ -47,20 +86,33 @@ export function compareSpecs(file, readBase, readHead) {
   const add = (rule, subject, detail) => findings.push({ rule, key: `${rule} ${subject}`, detail });
   const base = describeSpec(file, readBase);
   const head = describeSpec(file, readHead);
-  for (const [address, baseMessages] of base) {
+  for (const [address, baseChannel] of base) {
     if (!head.has(address)) {
       // A dead-letter topic is internal to the consumer that owns it (ADR-019), not a contract others read.
       if (/\.dlq\.v\d+$/.test(address)) continue;
       add('removed-channel', address, `channel ${address} was removed`);
       continue;
     }
-    const headMessages = head.get(address);
-    for (const [mKey, baseProps] of baseMessages) {
+    const headChannel = head.get(address);
+    for (const [field, b] of Object.entries(baseChannel.binding)) {
+      const h = headChannel.binding[field];
+      if (b === h) continue;
+      // Longer retention only keeps records longer; shorter retention can drop what consumers replay.
+      if (field === 'retention.ms' && (b === undefined || (typeof h === 'number' && typeof b === 'number' && h >= b))) continue;
+      add('changed-binding', `${address} ${field}`, `Kafka binding ${field} changed from ${b} to ${h}`);
+    }
+    const headMessages = headChannel.messages;
+    for (const [mKey, baseMessage] of baseChannel.messages) {
       if (!headMessages.has(mKey)) {
         add('removed-message', `${address} ${mKey}`, `message ${mKey} was removed from ${address}`);
         continue;
       }
-      const headProps = headMessages.get(mKey);
+      const baseProps = baseMessage.props;
+      const headMessage = headMessages.get(mKey);
+      const headProps = headMessage.props;
+      if (baseMessage.key !== headMessage.key) {
+        add('changed-message-key', `${address} ${mKey}`, `Kafka message key changed from ${baseMessage.key} to ${headMessage.key}`);
+      }
       for (const [p, b] of baseProps) {
         const h = headProps.get(p);
         const subject = `${address} ${mKey} ${p}`;
@@ -69,6 +121,13 @@ export function compareSpecs(file, readBase, readHead) {
           continue;
         }
         if (h.required && !b.required) add('newly-required', subject, `property ${p} is now required`);
+        if (b.required && !h.required) add('no-longer-required', subject, `property ${p} is no longer required`);
+        if (b.const !== h.const) add('changed-const', subject, `const changed from ${b.const} to ${h.const}`);
+        for (const k of new Set([...Object.keys(b.constraints ?? {}), ...Object.keys(h.constraints ?? {})])) {
+          const bv = b.constraints?.[k];
+          const hv = h.constraints?.[k];
+          if (bv !== hv) add('changed-constraint', `${subject} ${k}`, `${k} changed from ${bv} to ${hv}`);
+        }
         if (b.types && h.types && b.types !== h.types) add('changed-type', subject, `type changed from ${b.types} to ${h.types}`);
         if (b.enum && h.enum) {
           for (const v of b.enum.filter((x) => !h.enum.includes(x))) {

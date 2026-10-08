@@ -71,3 +71,51 @@ test('removing a dead-letter channel is not breaking (DLQs are consumer-owned, A
   base.channels.deadLetter = deadLetterChannel();
   assert.deepEqual(rules(base, spec()), []);
 });
+
+// Consumer-breaking changes on the same .vN topic (ADR-019 section 5).
+const binding = (mutate) => {
+  const doc = spec();
+  doc.channels.created.bindings.kafka = { topic: 'evt.tst.sample.created.v1', partitions: 3, topicConfiguration: { 'cleanup.policy': ['delete'], 'retention.ms': 604800000 } };
+  if (mutate) mutate(doc.channels.created.bindings.kafka, doc);
+  return doc;
+};
+const withKey = (key) => {
+  const doc = spec();
+  doc.components.messages.SampleCreated.bindings = { kafka: { key } };
+  return doc;
+};
+
+test('a property that is no longer required is breaking', () => {
+  assert.deepEqual(rules(spec(), data((d) => { d.required = []; })), ['no-longer-required evt.tst.sample.created.v1 SampleCreated $.data.sampleId']);
+});
+
+test('a changed const is breaking', () => {
+  const withConst = (v) => data((d) => { d.properties.kind = { type: 'string', const: v }; });
+  assert.deepEqual(rules(withConst('Sample.Created.v1'), withConst('Sample.Decided.v1')), ['changed-const evt.tst.sample.created.v1 SampleCreated $.data.kind']);
+});
+
+test('a changed validation keyword is breaking', () => {
+  const base = data((d) => { d.properties.sampleId.minLength = 1; });
+  const head = data((d) => { d.properties.sampleId.minLength = 1; d.properties.sampleId.pattern = '^S-[0-9]+$'; });
+  assert.deepEqual(rules(base, head), ['changed-constraint evt.tst.sample.created.v1 SampleCreated $.data.sampleId pattern']);
+});
+
+test('changed partitions, cleanup policy or topic in the Kafka binding are breaking', () => {
+  const head = binding((k) => { k.partitions = 12; k.topicConfiguration['cleanup.policy'] = ['compact']; k.topic = 'evt.tst.sample.made.v1'; });
+  assert.deepEqual(rules(binding(), head).sort(), [
+    'changed-binding evt.tst.sample.created.v1 cleanup.policy',
+    'changed-binding evt.tst.sample.created.v1 partitions',
+    'changed-binding evt.tst.sample.created.v1 topic',
+  ]);
+});
+
+test('shorter retention is breaking, longer retention and replicas are not', () => {
+  assert.deepEqual(rules(binding(), binding((k) => { k.topicConfiguration['retention.ms'] = 86400000; })), ['changed-binding evt.tst.sample.created.v1 retention.ms']);
+  assert.deepEqual(rules(binding(), binding((k) => { k.topicConfiguration['retention.ms'] = 7776000000; k.replicas = 3; })), []);
+});
+
+test('a changed message key is breaking, a reworded key description is not', () => {
+  const base = withKey({ type: 'string', description: 'aggregateId (sampleId).' });
+  assert.deepEqual(rules(base, withKey({ type: 'string', description: 'The sample id.' })), []);
+  assert.deepEqual(rules(base, withKey({ type: 'integer', description: 'aggregateId (sampleId).' })), ['changed-message-key evt.tst.sample.created.v1 SampleCreated']);
+});
