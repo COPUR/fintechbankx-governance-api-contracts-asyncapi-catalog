@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { compareSpecs, readAccepted } from '../asyncapi-breaking.mjs';
-import { spec, ENVELOPE, reader } from './fixtures.mjs';
+import { spec, ENVELOPE, reader, deadLetterChannel } from './fixtures.mjs';
 
 const FILE = 'asyncapi/svc-tst-sample.yaml';
 const files = (doc) => reader({ [FILE]: doc, 'asyncapi/common/event-envelope.yaml': ENVELOPE });
@@ -64,4 +64,10 @@ test('removed enum value is breaking', () => {
 test('accepted-breaking list parses keys and ignores comments', () => {
   const accepted = readAccepted('# reason: v2 published\nremoved-channel evt.tst.sample.created.v1  # dual-publish ended\n\n');
   assert.deepEqual([...accepted], ['removed-channel evt.tst.sample.created.v1']);
+});
+
+test('removing a dead-letter channel is not breaking (DLQs are consumer-owned, ADR-019)', () => {
+  const base = spec();
+  base.channels.deadLetter = deadLetterChannel();
+  assert.deepEqual(rules(base, spec()), []);
 });

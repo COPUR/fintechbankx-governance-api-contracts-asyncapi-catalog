@@ -19,7 +19,8 @@
 // Consumed channels (every operation on the channel is `receive`) may sit in another namespace. They must be
 // listed in the entry's optional `consumes` array, are not counted as published, and when the owning
 // namespace has a spec in the catalog that spec must publish the topic. Another namespace's dead-letter topic
-// cannot be consumed: DLQs are consumer-owned (ADR-019).
+// cannot be consumed, and a spec declares its own dead-letter topic only when it consumes something: DLQs are
+// consumer-owned (ADR-019).
 import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -181,6 +182,10 @@ export function checkCatalog(root) {
       if (!usesEnvelope(msg?.payload, doc)) {
         err(`${f} components.messages.${mKey}: payload does not use the common envelope`);
       }
+    }
+    const ownDlq = addresses.filter((a) => /\.dlq\.v\d+$/.test(a));
+    if (ownDlq.length && consumedHere.length === 0) {
+      err(`${f}: declares dead-letter topic ${ownDlq.join(', ')} but consumes nothing; DLQs are consumer-owned (ADR-019), drop it until the service consumes a topic`);
     }
     const indexed = [...(entry.channels ?? [])].sort();
     const actual = [...addresses].sort();

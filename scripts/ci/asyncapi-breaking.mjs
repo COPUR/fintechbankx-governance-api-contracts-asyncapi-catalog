@@ -8,7 +8,8 @@
 //
 // Breaking findings (each one fails the gate):
 //   removed-spec       a spec present at the base is gone
-//   removed-channel    a channel address present at the base is gone
+//   removed-channel    a channel address present at the base is gone (dead-letter topics excepted:
+//                      they belong to the consuming service, ADR-019)
 //   removed-message    a message key of a channel is gone
 //   removed-property   a payload property path (envelope or data) is gone
 //   newly-required     a payload property is required now but was optional or absent at the base
@@ -48,6 +49,8 @@ export function compareSpecs(file, readBase, readHead) {
   const head = describeSpec(file, readHead);
   for (const [address, baseMessages] of base) {
     if (!head.has(address)) {
+      // A dead-letter topic is internal to the consumer that owns it (ADR-019), not a contract others read.
+      if (/\.dlq\.v\d+$/.test(address)) continue;
       add('removed-channel', address, `channel ${address} was removed`);
       continue;
     }
