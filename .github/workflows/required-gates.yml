@@ -109,7 +109,9 @@ jobs:
       - name: AsyncAPI breaking-change check
         if: ${{ hashFiles('asyncapi/*.yaml') != '' || hashFiles('asyncapi/*.yml') != '' }}
         env:
-          BASE_REF: origin/${{ github.base_ref || 'main' }}
+          # Always main, also for stacked PRs: versions count from the first merge to main, and a spec
+          # that is only on a stacked base branch is pre-release (asyncapi/README.md, Change rules).
+          BASE_REF: origin/main
         shell: bash
         run: |
           set -euo pipefail
