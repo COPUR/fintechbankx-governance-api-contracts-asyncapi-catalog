@@ -21,18 +21,12 @@
         "branch": "claude/customer-risk-compliance-deployable-ygi0zo",
         "repo": "COPUR/fintechbankx-customer-profile-kyc-core",
         "status": "outbox",
-        "note": "Transactional outbox, envelope factory and relay on an unmerged branch; status changes to outbox when the provider merges it."
+        "note": "Transactional outbox, envelope factory and relay publishing the Customer.Customer.* events on evt.cus.customer.v1, with the provider spec api/asyncapi/svc-cus-profile-kyc.yaml, on an unmerged branch (PR #13); status changes to outbox when the provider merges it."
       },
       "channels": [
-        "evt.cus.customer.created.v1",
-        "evt.cus.customer.contact-updated.v1",
-        "evt.cus.customer.credit-limit-updated.v1",
-        "evt.cus.customer.credit-reserved.v1",
-        "evt.cus.customer.credit-released.v1",
-        "evt.cus.customer.credit-score-updated.v1",
-        "evt.cus.customer.kyc-status-changed.v1"
+        "evt.cus.customer.v1"
       ],
-      "providerSpecPath": "api/asyncapi/svc-cus-profile-kyc.yaml"
+      "providerSpecPath": null
     },
     {
       "file": "asyncapi/svc-ln-loan-lifecycle.yaml",
@@ -50,13 +44,7 @@
         "note": "Transactional outbox, envelope factory and relay on an unmerged branch; status changes to outbox when the provider merges it."
       },
       "channels": [
-        "evt.ln.loan.created.v1",
-        "evt.ln.loan.approved.v1",
-        "evt.ln.loan.rejected.v1",
-        "evt.ln.loan.disbursed.v1",
-        "evt.ln.loan.cancelled.v1",
-        "evt.ln.loan.payment-made.v1",
-        "evt.ln.loan.fully-paid.v1"
+        "evt.ln.loan.v1"
       ],
       "providerSpecPath": null
     },
@@ -76,15 +64,7 @@
         "note": "Transactional outbox, envelope factory and relay on an unmerged branch; status changes to outbox when the provider merges it."
       },
       "channels": [
-        "evt.pay.payment.created.v1",
-        "evt.pay.payment.processing-started.v1",
-        "evt.pay.payment.completed.v1",
-        "evt.pay.payment.failed.v1",
-        "evt.pay.payment.cancelled.v1",
-        "evt.pay.payment.refunded.v1",
-        "evt.pay.payment.loan-payment-created.v1",
-        "evt.pay.payment.loan-payment-completed.v1",
-        "evt.pay.payment.loan-payment-failed.v1"
+        "evt.pay.payment.v1"
       ],
       "providerSpecPath": null
     },
@@ -99,9 +79,7 @@
       "implementationNote": "KafkaPayRequestNotificationAdapter publishes bare records to the legacy topic rtp.pay_requests.v1 (no envelope, no outbox); dual-publish required during migration. Lending and payments pillar is moving it to an outbox on evt.pay.rtp.created/accepted/rejected.v1 and retiring rtp.pay_requests.v1.",
       "pendingImplementation": null,
       "channels": [
-        "evt.pay.rtp.created.v1",
-        "evt.pay.rtp.accepted.v1",
-        "evt.pay.rtp.rejected.v1"
+        "evt.pay.rtp.v1"
       ],
       "providerSpecPath": null
     },
@@ -112,18 +90,18 @@
       "canonicalRepo": "fintechbankx-risk-decisioning-service",
       "owningSquad": "Risk and Compliance Decisioning Squad",
       "namespace": "evt.rsk.risk",
-      "channels": [
-        "evt.rsk.risk.assessed.v1"
-      ],
-      "providerSpecPath": "api/asyncapi/svc-rsk-decisioning.yaml",
       "implementationStatus": "contract-only",
-      "implementationNote": "No publisher on the provider default branch yet; the contract and a transactional outbox with relay are on an unmerged provider branch.",
+      "implementationNote": "No event publishing code on the provider default branch; nothing reaches Kafka from it.",
       "pendingImplementation": {
         "branch": "claude/customer-risk-compliance-deployable-ygi0zo",
         "repo": "COPUR/fintechbankx-riskcompliance-risk-decisioning-core",
         "status": "outbox",
-        "note": "Transactional outbox, envelope factory and relay on an unmerged branch; status changes to outbox when the provider merges it."
-      }
+        "note": "Transactional outbox, envelope factory and relay publishing Risk.RiskAssessment.Assessed.v1 on evt.rsk.risk.v1, with the provider-owned contract api/asyncapi/svc-rsk-decisioning.yaml, on an unmerged branch (PR #13); status changes to outbox and providerSpecPath is set when the provider merges it."
+      },
+      "channels": [
+        "evt.rsk.risk.v1"
+      ],
+      "providerSpecPath": null
     },
     {
       "file": "asyncapi/svc-cmp-evidence.yaml",
@@ -132,18 +110,18 @@
       "canonicalRepo": "fintechbankx-compliance-evidence-service",
       "owningSquad": "Risk and Compliance Decisioning Squad",
       "namespace": "evt.cmp.compliance",
-      "channels": [
-        "evt.cmp.compliance.screened.v1"
-      ],
-      "providerSpecPath": "api/asyncapi/svc-cmp-evidence.yaml",
       "implementationStatus": "contract-only",
-      "implementationNote": "No publisher on the provider default branch yet; the contract and a transactional outbox with relay are on an unmerged provider branch.",
+      "implementationNote": "No event publishing code or contract on the provider default branch, so nothing reaches Kafka from it.",
       "pendingImplementation": {
         "branch": "claude/customer-risk-compliance-deployable-ygi0zo",
         "repo": "COPUR/fintechbankx-riskcompliance-compliance-evidence-core",
         "status": "outbox",
-        "note": "Transactional outbox, envelope factory and relay on an unmerged branch; status changes to outbox when the provider merges it."
-      }
+        "note": "Transactional outbox, envelope factory and relay (Compliance.ComplianceScreening.Screened.v1 on evt.cmp.compliance.v1) and the provider spec api/asyncapi/svc-cmp-evidence.yaml on an unmerged branch (PR #13); status changes to outbox when the provider merges it."
+      },
+      "channels": [
+        "evt.cmp.compliance.v1"
+      ],
+      "providerSpecPath": null
     },
     {
       "file": null,
@@ -168,7 +146,7 @@
       "channels": [],
       "providerSpecPath": null,
       "implementationStatus": "no-contract",
-      "implementationNote": "Open finance pillar plans evt.of.payee.verification-completed.v1 (2026-10-08). No contract yet.",
+      "implementationNote": "Open finance pillar plans event type OpenFinance.PayeeVerification.Completed.v1 on evt.of.payee.v1 (2026-10-08). No contract yet.",
       "pendingImplementation": null
     },
     {
