@@ -52,7 +52,7 @@ plus "expected" entries (`file: null`) for services that will publish but have n
 | `serviceId`, `namespace` | Service id and event namespace from `repository-bootstrap-manifest.csv` |
 | `ownerRepo`, `canonicalRepo` | Actual GitHub repository (`COPUR/...`) and canonical name used in governance docs |
 | `channels` | Full topic addresses declared by the spec, dead-letter topic included |
-| `providerSpecPath` | Path of the AsyncAPI file in the provider repository; `null` while the provider has none |
+| `providerSpecPath` | Path of the AsyncAPI file in the provider repository (for example `api/asyncapi/<service-id>.yaml`), set as soon as the provider carries the file, on its default branch or on the branch named in `pendingImplementation`; `null` only while the provider has none |
 | `implementationStatus` | `contract-only`, `publishes-legacy`, `outbox` or `no-contract` (see `statusValues` in the file) |
 | `pendingImplementation` | Unmerged provider branch that changes the status, if any |
 
@@ -70,7 +70,7 @@ Status today (Proposed):
 | `svc-pay-recurring-mandates` | `evt.pay.mandate` | `no-contract` | expected |
 | `svc-pay-bulk-orchestration` | `evt.pay.bulk` | `no-contract` | expected |
 
-No provider repository carries its own AsyncAPI file yet, so every `providerSpecPath` is `null`.
+In this PR every `providerSpecPath` is still `null`; the stacked catalog PRs (#11 to #13) set it for the providers whose repositories now carry their own spec.
 
 ## Checks
 
