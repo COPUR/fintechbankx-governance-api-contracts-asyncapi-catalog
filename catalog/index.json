@@ -24,12 +24,7 @@
         "note": "Transactional outbox, envelope factory and relay on an unmerged branch; status changes to outbox when the provider merges it."
       },
       "channels": [
-        "evt.cus.customer.created.v1",
-        "evt.cus.customer.contact-updated.v1",
-        "evt.cus.customer.credit-limit-updated.v1",
-        "evt.cus.customer.credit-reserved.v1",
-        "evt.cus.customer.credit-released.v1",
-        "evt.cus.customer.credit-score-updated.v1"
+        "evt.cus.customer.v1"
       ],
       "providerSpecPath": null
     },
@@ -49,13 +44,7 @@
         "note": "Transactional outbox, envelope factory and relay on an unmerged branch; status changes to outbox when the provider merges it."
       },
       "channels": [
-        "evt.ln.loan.created.v1",
-        "evt.ln.loan.approved.v1",
-        "evt.ln.loan.rejected.v1",
-        "evt.ln.loan.disbursed.v1",
-        "evt.ln.loan.cancelled.v1",
-        "evt.ln.loan.payment-made.v1",
-        "evt.ln.loan.fully-paid.v1"
+        "evt.ln.loan.v1"
       ],
       "providerSpecPath": null
     },
@@ -75,15 +64,7 @@
         "note": "Transactional outbox, envelope factory and relay on an unmerged branch; status changes to outbox when the provider merges it."
       },
       "channels": [
-        "evt.pay.payment.created.v1",
-        "evt.pay.payment.processing-started.v1",
-        "evt.pay.payment.completed.v1",
-        "evt.pay.payment.failed.v1",
-        "evt.pay.payment.cancelled.v1",
-        "evt.pay.payment.refunded.v1",
-        "evt.pay.payment.loan-payment-created.v1",
-        "evt.pay.payment.loan-payment-completed.v1",
-        "evt.pay.payment.loan-payment-failed.v1"
+        "evt.pay.payment.v1"
       ],
       "providerSpecPath": null
     },
@@ -98,9 +79,7 @@
       "implementationNote": "KafkaPayRequestNotificationAdapter publishes bare records to the legacy topic rtp.pay_requests.v1 (no envelope, no outbox); dual-publish required during migration. Lending and payments pillar is moving it to an outbox on evt.pay.rtp.created/accepted/rejected.v1 and retiring rtp.pay_requests.v1.",
       "pendingImplementation": null,
       "channels": [
-        "evt.pay.rtp.created.v1",
-        "evt.pay.rtp.accepted.v1",
-        "evt.pay.rtp.rejected.v1"
+        "evt.pay.rtp.v1"
       ],
       "providerSpecPath": null
     },
@@ -138,21 +117,18 @@
       "owningSquad": "Consent and Authorization Squad",
       "namespace": "evt.of.consent",
       "channels": [
-        "evt.of.consent.created.v1",
-        "evt.of.consent.authorized.v1",
-        "evt.of.consent.revoked.v1",
-        "evt.of.consent.expired.v1"
+        "evt.of.consent.v1"
       ],
       "providerSpecPath": "api/asyncapi/svc-of-consent-authorization.yaml",
-      "providerSpecCommit": "10d8035",
       "implementationStatus": "contract-only",
-      "implementationNote": "Consent lifecycle events exist in the domain; the provider default branch has no outbox or publisher, so nothing reaches Kafka from it. Consumed by svc-of-personal-financial-data, svc-of-business-financial-data and svc-of-banking-metadata (consent projections).",
+      "implementationNote": "Consent facts (Created, Authorized, Revoked, Expired) on the one aggregate topic evt.of.consent.v1. Consumed by svc-of-personal-financial-data, svc-of-business-financial-data and svc-of-banking-metadata (consent projections). The provider default branch publishes nothing yet.",
       "pendingImplementation": {
         "branch": "claude/openfinance-deployable-ra36dq",
         "repo": "COPUR/fintechbankx-openfinance-consent-auth-service",
         "status": "outbox",
         "note": "Transactional outbox, envelope mapping and relay on an unmerged branch; status changes to outbox when the provider merges it."
-      }
+      },
+      "providerSpecCommit": "0dd97b2"
     },
     {
       "file": "asyncapi/svc-of-payee-verification.yaml",
@@ -162,10 +138,9 @@
       "owningSquad": "Payee and Metadata Squad",
       "namespace": "evt.of.payee",
       "channels": [
-        "evt.of.payee.verification-completed.v1"
+        "evt.of.payee.v1"
       ],
       "providerSpecPath": "api/asyncapi/svc-of-payee-verification.yaml",
-      "providerSpecCommit": "c70e8d1",
       "implementationStatus": "contract-only",
       "implementationNote": "The provider default branch matches against a seeded in-memory directory and publishes nothing.",
       "pendingImplementation": {
@@ -173,7 +148,8 @@
         "repo": "COPUR/fintechbankx-openfinance-payee-metadata-payee-verification",
         "status": "outbox",
         "note": "PostgreSQL decision record, transactional outbox and relay on an unmerged branch; status changes to outbox when the provider merges it."
-      }
+      },
+      "providerSpecCommit": "14b4ecf"
     },
     {
       "file": null,

@@ -20,14 +20,16 @@ info:
     Every message uses the standard envelope (common/event-envelope.yaml). Record key is the consentId (= aggregateId),
     so all events of one consent land on one partition in order; the outbox relay also keeps per-consent order when a
     row is retried or parked. aggregateVersion is the consent row's optimistic-lock version after the change, monotonic
-    per consent; because each transition has its own topic, consumers must ignore an event whose aggregateVersion is not
-    newer than the one they stored.
+    per consent. Every event type of the consent goes to the one aggregate topic evt.of.consent.v1 (ADR-019); the record
+    headers eventType, eventId and correlationId (UTF-8 text, required) repeat the envelope fields, so a consumer reads
+    eventType first and skips types it does not handle. traceparent and x-fapi-interaction-id are added when present.
+    Consumers still ignore an event whose aggregateVersion is not newer than the one they stored (redelivery).
 
     A consent is usable only when status is AUTHORIZED and expiresAt is in the future. accountIds are the accounts the
     customer selected when authorizing, never the participant's request; an empty accountIds list means the consent
     grants access to no account at all (it does not mean "all accounts").
 
-    Retention: a consent may live at most 90 days from creation (enforced when it is created), and every topic keeps
+    Retention: a consent may live at most 90 days from creation (enforced when it is created), and the topic keeps
     records for 90 days with cleanup.policy=delete. A consumer that rebuilds its projection by replaying from the
     earliest offset therefore sees the latest event of every consent that can still be in force.
 
@@ -40,12 +42,13 @@ info:
     - svc-of-banking-metadata (banking metadata), group cg.svc-of-banking-metadata.consent-projection.v1,
       DLQ evt.of.metadata.dlq.v1.
 
-    Payment services do not consume these topics. svc-pay-bulk-orchestration today, and the recurring-mandates service
-    once it is onboarded, check a consent synchronously with GET /api/v1/consents/{consentId} (internal API,
+    Payment services do not consume these topics. svc-pay-bulk-orchestration and svc-pay-recurring-mandates
+    check a consent synchronously with GET /api/v1/consents/{consentId} (internal API,
     api/openapi/consent-authorization-service-internal.yaml) at the moment they use it.
 
-    Adding an optional field is a minor change; any removal, rename or type change is a new major version on a new topic
-    with dual-publish.
+    Adding an optional field or a new event type is non-breaking. A breaking change to one event is a new event major
+    (OpenFinance.Consent.<Event>.v2) published on the same topic alongside v1; the topic major changes only when the key,
+    partition count or cleanup policy changes (ADR-019 section 5).
   tags:
   - name: open-finance
   - name: evt.of.consent
@@ -57,23 +60,23 @@ info:
     domain: retail account data
     consumer-group: cg.svc-of-personal-financial-data.consent-projection.v1
     dead-letter-topic: evt.of.account.dlq.v1
-    channels: [created, authorized, revoked, expired]
+    channels: [consent]
   - service-id: svc-of-business-financial-data
     domain: corporate account data
     consumer-group: cg.svc-of-business-financial-data.consent-projection.v1
     dead-letter-topic: evt.of.corporate.dlq.v1
-    channels: [created, authorized, revoked, expired]
+    channels: [consent]
   - service-id: svc-of-banking-metadata
     domain: banking metadata
     consumer-group: cg.svc-of-banking-metadata.consent-projection.v1
     dead-letter-topic: evt.of.metadata.dlq.v1
-    channels: [created, authorized, revoked, expired]
+    channels: [consent]
   x-synchronous-readers:
   - service-id: svc-pay-bulk-orchestration
     status: allowed
     operation: GET /api/v1/consents/{consentId}
-  - service-id: recurring-mandates service
-    status: planned, added to the allow-list once confirmed
+  - service-id: svc-pay-recurring-mandates
+    status: allowed
     operation: GET /api/v1/consents/{consentId}
 defaultContentType: application/json
 servers:
@@ -98,70 +101,25 @@ servers:
     security:
     - $ref: '#/components/securitySchemes/mtls'
 channels:
-  created:
-    address: evt.of.consent.created.v1
-    title: evt.of.consent.created.v1
-    description: OpenFinance.Consent.Created.v1. A TPP requested a consent; it awaits the customer's authorization.
+  consent:
+    address: evt.of.consent.v1
+    title: evt.of.consent.v1
+    description: 'Every event of the consent aggregate (ADR-019, one topic per aggregate), keyed by consentId so that the
+      events of one consent stay in order in one partition. The eventType record header names the event:
+      OpenFinance.Consent.Created.v1, OpenFinance.Consent.Authorized.v1, OpenFinance.Consent.Revoked.v1,
+      OpenFinance.Consent.Expired.v1. Consumers skip event types they do not handle.'
     messages:
       ConsentCreated:
         $ref: '#/components/messages/ConsentCreated'
-    bindings:
-      kafka:
-        topic: evt.of.consent.created.v1
-        partitions: 6
-        replicas: 3
-        topicConfiguration:
-          cleanup.policy:
-          - delete
-          retention.ms: 7776000000
-          max.message.bytes: 1048576
-        bindingVersion: 0.5.0
-  authorized:
-    address: evt.of.consent.authorized.v1
-    title: evt.of.consent.authorized.v1
-    description: OpenFinance.Consent.Authorized.v1. The customer authorized the consent; it is usable until expiresAt.
-    messages:
       ConsentAuthorized:
         $ref: '#/components/messages/ConsentAuthorized'
-    bindings:
-      kafka:
-        topic: evt.of.consent.authorized.v1
-        partitions: 6
-        replicas: 3
-        topicConfiguration:
-          cleanup.policy:
-          - delete
-          retention.ms: 7776000000
-          max.message.bytes: 1048576
-        bindingVersion: 0.5.0
-  revoked:
-    address: evt.of.consent.revoked.v1
-    title: evt.of.consent.revoked.v1
-    description: OpenFinance.Consent.Revoked.v1. The consent was revoked by the TPP or the customer; it can no longer be used.
-    messages:
       ConsentRevoked:
         $ref: '#/components/messages/ConsentRevoked'
-    bindings:
-      kafka:
-        topic: evt.of.consent.revoked.v1
-        partitions: 6
-        replicas: 3
-        topicConfiguration:
-          cleanup.policy:
-          - delete
-          retention.ms: 7776000000
-          max.message.bytes: 1048576
-        bindingVersion: 0.5.0
-  expired:
-    address: evt.of.consent.expired.v1
-    title: evt.of.consent.expired.v1
-    description: OpenFinance.Consent.Expired.v1. The consent passed expiresAt and was marked EXPIRED.
-    messages:
       ConsentExpired:
         $ref: '#/components/messages/ConsentExpired'
     bindings:
       kafka:
-        topic: evt.of.consent.expired.v1
+        topic: evt.of.consent.v1
         partitions: 6
         replicas: 3
         topicConfiguration:
@@ -174,41 +132,39 @@ operations:
   publishConsentCreated:
     action: send
     title: Publish OpenFinance.Consent.Created.v1
-    summary: svc-of-consent-authorization publishes OpenFinance.Consent.Created.v1 through its transactional outbox.
+    summary: svc-of-consent-authorization publishes OpenFinance.Consent.Created.v1 to evt.of.consent.v1 through its transactional outbox.
     channel:
-      $ref: '#/channels/created'
+      $ref: '#/channels/consent'
     messages:
-    - $ref: '#/channels/created/messages/ConsentCreated'
+    - $ref: '#/channels/consent/messages/ConsentCreated'
   publishConsentAuthorized:
     action: send
     title: Publish OpenFinance.Consent.Authorized.v1
-    summary: svc-of-consent-authorization publishes OpenFinance.Consent.Authorized.v1 through its transactional outbox.
+    summary: svc-of-consent-authorization publishes OpenFinance.Consent.Authorized.v1 to evt.of.consent.v1 through its transactional outbox.
     channel:
-      $ref: '#/channels/authorized'
+      $ref: '#/channels/consent'
     messages:
-    - $ref: '#/channels/authorized/messages/ConsentAuthorized'
+    - $ref: '#/channels/consent/messages/ConsentAuthorized'
   publishConsentRevoked:
     action: send
     title: Publish OpenFinance.Consent.Revoked.v1
-    summary: svc-of-consent-authorization publishes OpenFinance.Consent.Revoked.v1 through its transactional outbox.
+    summary: svc-of-consent-authorization publishes OpenFinance.Consent.Revoked.v1 to evt.of.consent.v1 through its transactional outbox.
     channel:
-      $ref: '#/channels/revoked'
+      $ref: '#/channels/consent'
     messages:
-    - $ref: '#/channels/revoked/messages/ConsentRevoked'
+    - $ref: '#/channels/consent/messages/ConsentRevoked'
   publishConsentExpired:
     action: send
     title: Publish OpenFinance.Consent.Expired.v1
-    summary: svc-of-consent-authorization publishes OpenFinance.Consent.Expired.v1 through its transactional outbox.
+    summary: svc-of-consent-authorization publishes OpenFinance.Consent.Expired.v1 to evt.of.consent.v1 through its transactional outbox.
     channel:
-      $ref: '#/channels/expired'
+      $ref: '#/channels/consent'
     messages:
-    - $ref: '#/channels/expired/messages/ConsentExpired'
+    - $ref: '#/channels/consent/messages/ConsentExpired'
 components:
   schemas:
     EventEnvelope:
       $ref: ./common/event-envelope.yaml#/EventEnvelope
-    EventHeaders:
-      $ref: ./common/event-envelope.yaml#/EventHeaders
     ConsentFactData:
       type: object
       description: >-
@@ -313,7 +269,12 @@ components:
       summary: A TPP requested a consent; it awaits the customer's authorization.
       contentType: application/json
       headers:
-        $ref: '#/components/schemas/EventHeaders'
+        allOf:
+        - $ref: ./common/event-envelope.yaml#/EventHeaders
+        - type: object
+          properties:
+            eventType:
+              const: OpenFinance.Consent.Created.v1
       payload:
         allOf:
         - $ref: '#/components/schemas/EventEnvelope'
@@ -343,7 +304,12 @@ components:
       summary: The customer authorized the consent; it is usable until expiresAt.
       contentType: application/json
       headers:
-        $ref: '#/components/schemas/EventHeaders'
+        allOf:
+        - $ref: ./common/event-envelope.yaml#/EventHeaders
+        - type: object
+          properties:
+            eventType:
+              const: OpenFinance.Consent.Authorized.v1
       payload:
         allOf:
         - $ref: '#/components/schemas/EventEnvelope'
@@ -373,7 +339,12 @@ components:
       summary: The consent was revoked by the TPP or the customer; it can no longer be used.
       contentType: application/json
       headers:
-        $ref: '#/components/schemas/EventHeaders'
+        allOf:
+        - $ref: ./common/event-envelope.yaml#/EventHeaders
+        - type: object
+          properties:
+            eventType:
+              const: OpenFinance.Consent.Revoked.v1
       payload:
         allOf:
         - $ref: '#/components/schemas/EventEnvelope'
@@ -403,7 +374,12 @@ components:
       summary: The consent passed expiresAt and was marked EXPIRED.
       contentType: application/json
       headers:
-        $ref: '#/components/schemas/EventHeaders'
+        allOf:
+        - $ref: ./common/event-envelope.yaml#/EventHeaders
+        - type: object
+          properties:
+            eventType:
+              const: OpenFinance.Consent.Expired.v1
       payload:
         allOf:
         - $ref: '#/components/schemas/EventEnvelope'
