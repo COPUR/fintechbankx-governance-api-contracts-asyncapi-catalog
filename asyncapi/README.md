@@ -70,7 +70,7 @@ Status today (Proposed):
 | `svc-pay-recurring-mandates` | `evt.pay.mandate` | `contract-only` | outbox and relay on unmerged provider branch `claude/lending-payments-deployable-zxfdi1` |
 | `svc-pay-bulk-orchestration` | `evt.pay.bulk` | `contract-only` | outbox and relay on unmerged provider branch `claude/lending-payments-deployable-zxfdi1` |
 
-`providerSpecPath` is set when the provider repository carries its own AsyncAPI file (on its default branch or its pending branch); otherwise it is `null`.
+No provider repository carries its own AsyncAPI file yet, so every `providerSpecPath` is `null`.
 
 ## Checks
 
