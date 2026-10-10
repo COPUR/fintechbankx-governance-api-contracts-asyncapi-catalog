@@ -12,7 +12,7 @@ record key is `aggregateId`. Naming follows
 |---|---|---|---|---|
 | [svc-ln-loan-lifecycle.yaml](svc-ln-loan-lifecycle.yaml) | Loan lifecycle | `evt.ln.loan.v1`, DLQ `evt.ln.loan.dlq.v1` | `Lending.Loan.*.v1` event types (see the spec); consumes `evt.pay.payment.v1` | Domain events raised; no publisher adapter |
 | [svc-pay-initiation-settlement.yaml](svc-pay-initiation-settlement.yaml) | Payment initiation and settlement | `evt.pay.payment.v1` | nine payment and loan-payment event types (see the spec) | Domain events raised; no publisher adapter |
-| [svc-pay-request-to-pay.yaml](svc-pay-request-to-pay.yaml) | Request to pay | `evt.pay.rtp.v1` | `Payments.PayRequest.*.v1`: Created, Accepted, Rejected | Published to legacy `rtp.pay_requests.v1` without envelope |
+| [svc-pay-request-to-pay.yaml](svc-pay-request-to-pay.yaml) | Request to pay | `evt.pay.rtp.v1` | `Payments.PayRequest.*.v1`: Created, Accepted, Rejected | Default branch publishes to legacy `rtp.pay_requests.v1` without envelope; outbox on `evt.pay.rtp.v1` on unmerged provider branch (legacy topic retired, no dual-publish) |
 | [svc-pay-recurring-mandates.yaml](svc-pay-recurring-mandates.yaml) | Recurring payment mandates | `evt.pay.mandate.v1` | mandate event types (see the spec) | No publisher on default branch |
 | [svc-pay-bulk-orchestration.yaml](svc-pay-bulk-orchestration.yaml) | Bulk payment files | `evt.pay.bulk.v1` | bulk file event types (see the spec) | No publisher on default branch |
 | [svc-cus-profile-kyc.yaml](svc-cus-profile-kyc.yaml) | Customer profile and KYC | `evt.cus.customer.v1` | seven customer event types (see the spec) | Published after save via an external `DomainEventPublisher`; no outbox |
@@ -63,14 +63,14 @@ Status today (Proposed):
 | `svc-ln-loan-lifecycle` | `evt.ln.loan` | `contract-only` | outbox and relay on unmerged provider branch `claude/project-thread-ty79y4` |
 | `svc-pay-initiation-settlement` | `evt.pay.payment` | `contract-only` | outbox and relay on unmerged provider branch `claude/project-thread-ty79y4` |
 | `svc-cus-profile-kyc` | `evt.cus.customer` | `contract-only` | outbox and relay on unmerged provider branch `claude/project-thread-ty79y4` |
-| `svc-pay-request-to-pay` | `evt.pay.rtp` | `publishes-legacy` | legacy topic `rtp.pay_requests.v1`, no envelope |
+| `svc-pay-request-to-pay` | `evt.pay.rtp` | `publishes-legacy` | legacy topic `rtp.pay_requests.v1`, no envelope; outbox on `evt.pay.rtp.v1` on unmerged provider branch `claude/lending-payments-deployable-zxfdi1` |
 | `svc-rsk-decisioning` | `evt.rsk.risk` | `no-contract` | expected |
 | `svc-cmp-evidence` | `evt.cmp.compliance` | `no-contract` | expected |
 | `svc-of-consent-authorization` | `evt.of.consent` | `no-contract` | expected |
 | `svc-pay-recurring-mandates` | `evt.pay.mandate` | `contract-only` | outbox and relay on unmerged provider branch `claude/lending-payments-deployable-zxfdi1` |
 | `svc-pay-bulk-orchestration` | `evt.pay.bulk` | `contract-only` | outbox and relay on unmerged provider branch `claude/lending-payments-deployable-zxfdi1` |
 
-No provider repository carries its own AsyncAPI file yet, so every `providerSpecPath` is `null`.
+`providerSpecPath` is set when the provider repository carries its own AsyncAPI file (on its default branch or its pending branch); otherwise it is `null`.
 
 ## Checks
 

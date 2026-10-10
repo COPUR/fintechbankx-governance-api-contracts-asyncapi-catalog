@@ -47,7 +47,7 @@
         "evt.ln.loan.v1",
         "evt.ln.loan.dlq.v1"
       ],
-      "providerSpecPath": null,
+      "providerSpecPath": "api/asyncapi/svc-ln-loan-lifecycle.yaml",
       "consumes": [
         "evt.pay.payment.v1"
       ]
@@ -70,7 +70,7 @@
       "channels": [
         "evt.pay.payment.v1"
       ],
-      "providerSpecPath": null
+      "providerSpecPath": "api/asyncapi/svc-pay-initiation-settlement.yaml"
     },
     {
       "file": "asyncapi/svc-pay-request-to-pay.yaml",
@@ -80,12 +80,17 @@
       "owningSquad": "Recurring and Bulk Payments Squad",
       "namespace": "evt.pay.rtp",
       "implementationStatus": "publishes-legacy",
-      "implementationNote": "KafkaPayRequestNotificationAdapter publishes bare records to the legacy topic rtp.pay_requests.v1 (no envelope, no outbox); dual-publish required during migration. Lending and payments pillar is moving it to an outbox on evt.pay.rtp.created/accepted/rejected.v1 and retiring rtp.pay_requests.v1.",
-      "pendingImplementation": null,
+      "implementationNote": "KafkaPayRequestNotificationAdapter on the provider default branch publishes bare records to the legacy topic rtp.pay_requests.v1 (no envelope, no outbox). The pending outbox publishes Payments.PayRequest.{Created,Accepted,Rejected}.v1 on evt.pay.rtp.v1.",
+      "pendingImplementation": {
+        "branch": "claude/lending-payments-deployable-zxfdi1",
+        "repo": "COPUR/fintechbankx-lendingpayments-payment-orchestration-request-to-pay",
+        "status": "outbox",
+        "note": "Transactional outbox and relay on an unmerged branch; the catalog copy mirrors provider commit 6dedf03. The legacy topic rtp.pay_requests.v1 is retired without dual-publish because it had no consumer."
+      },
       "channels": [
         "evt.pay.rtp.v1"
       ],
-      "providerSpecPath": null
+      "providerSpecPath": "api/asyncapi/svc-pay-request-to-pay.yaml"
     },
     {
       "file": null,
@@ -149,7 +154,7 @@
       "channels": [
         "evt.pay.mandate.v1"
       ],
-      "providerSpecPath": null,
+      "providerSpecPath": "api/asyncapi/svc-pay-recurring-mandates.yaml",
       "implementationStatus": "contract-only",
       "implementationNote": "No publisher on the provider default branch. The service consumes nothing, so it lists no dead-letter topic (consumer-owned DLQs, ADR-019).",
       "pendingImplementation": {
@@ -169,9 +174,9 @@
       "channels": [
         "evt.pay.bulk.v1"
       ],
-      "providerSpecPath": null,
+      "providerSpecPath": "api/asyncapi/svc-pay-bulk-orchestration.yaml",
       "implementationStatus": "contract-only",
-      "implementationNote": "No publisher on the provider default branch. The service consumes nothing, so it lists no dead-letter topic (consumer-owned DLQs, ADR-019). evt.pay.bulk.completed.v1 is declared but not emitted (x-emitted: false in the spec) until accepted items are handed to svc-pay-initiation-settlement.",
+      "implementationNote": "No publisher on the provider default branch. The service consumes nothing, so it lists no dead-letter topic (consumer-owned DLQs, ADR-019). Payments.BulkFile.Completed.v1 (on evt.pay.bulk.v1) is declared but not emitted (x-emitted: false in the spec) until accepted items are handed to svc-pay-initiation-settlement.",
       "pendingImplementation": {
         "branch": "claude/lending-payments-deployable-zxfdi1",
         "repo": "COPUR/fintechbankx-lendingpayments-payment-orchestration-bulk-orchestration",
