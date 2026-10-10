@@ -70,7 +70,7 @@ Status today (Proposed):
 | `svc-pay-recurring-mandates` | `evt.pay.mandate` | `no-contract` | expected |
 | `svc-pay-bulk-orchestration` | `evt.pay.bulk` | `no-contract` | expected |
 
-Customer, risk and compliance carry `api/asyncapi/<service-id>.yaml` on the provider branch named in `pendingImplementation`, so their `providerSpecPath` is set; the other entries stay `null` until their provider carries its own spec.
+Customer, risk and compliance carry `api/asyncapi/<service-id>.yaml` on the provider branch named in `pendingImplementation`, so their `providerSpecPath` is set; the other entries stay `null` until their provider carries its own spec. A catalog PR that points `providerSpecPath` at an unmerged provider branch names that branch in `pendingImplementation` and merges only after the provider PR, so on the catalog's default branch the path always resolves on the provider's default branch. This PR therefore merges after customer, risk and compliance PR #13.
 
 ## Checks
 
