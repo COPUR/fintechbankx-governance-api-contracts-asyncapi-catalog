@@ -8,30 +8,34 @@ standard envelope in [`common/event-envelope.yaml`](common/event-envelope.yaml):
 record key is `aggregateId`. Naming follows
 [`NAMING_CONVENTION_DDD_EDA_BUSINESS_CONTEXT.md`](../docs/NAMING_CONVENTION_DDD_EDA_BUSINESS_CONTEXT.md).
 
-| Contract | Service | Namespace | Topics | Implementation today |
+| Contract | Service | Topic (one per aggregate) | Event types (`eventType` header) | Implementation today |
 |---|---|---|---|---|
-| [svc-ln-loan-lifecycle.yaml](svc-ln-loan-lifecycle.yaml) | Loan lifecycle | `evt.ln.loan` | `created`, `approved`, `rejected`, `disbursed`, `cancelled`, `payment-made`, `fully-paid`; DLQ `dlq` (consumes `evt.pay.payment.loan-payment-completed.v1`) | Domain events raised; no publisher adapter (outbox, relay and repayment consumer on provider branch `claude/project-thread-ty79y4`) |
-| [svc-pay-initiation-settlement.yaml](svc-pay-initiation-settlement.yaml) | Payment initiation and settlement | `evt.pay.payment` | `created`, `processing-started`, `completed`, `failed`, `cancelled`, `refunded`, `loan-payment-created`, `loan-payment-completed`, `loan-payment-failed` | Domain events raised; no publisher adapter (outbox and relay on provider branch `claude/project-thread-ty79y4`) |
-| [svc-pay-request-to-pay.yaml](svc-pay-request-to-pay.yaml) | Request to pay | `evt.pay.rtp` | `created`, `accepted`, `rejected` | Published to legacy `rtp.pay_requests.v1` without envelope (outbox on provider branch `claude/lending-payments-deployable-zxfdi1`, which retires the legacy topic with no dual-publish) |
-| [svc-pay-recurring-mandates.yaml](svc-pay-recurring-mandates.yaml) | Recurring payment mandates | `evt.pay.mandate` | `created`, `revoked`, `payment-accepted` | No publisher on default branch (outbox on provider branch `claude/lending-payments-deployable-zxfdi1`) |
-| [svc-pay-bulk-orchestration.yaml](svc-pay-bulk-orchestration.yaml) | Bulk payment files | `evt.pay.bulk` | `accepted`, `completed` (declared, not emitted yet: `x-emitted: false`), `rejected` | No publisher on default branch (outbox on provider branch `claude/lending-payments-deployable-zxfdi1`) |
-| [svc-cus-profile-kyc.yaml](svc-cus-profile-kyc.yaml) | Customer profile and KYC | `evt.cus.customer` | `created`, `contact-updated`, `credit-limit-updated`, `credit-reserved`, `credit-released`, `credit-score-updated` | Published after save via an external `DomainEventPublisher`; no outbox |
+| [svc-ln-loan-lifecycle.yaml](svc-ln-loan-lifecycle.yaml) | Loan lifecycle | `evt.ln.loan.v1` | `Lending.Loan.*.v1`: Created, Approved, Rejected, Disbursed, Cancelled, PaymentMade, FullyPaid | Domain events raised; no publisher adapter |
+| [svc-pay-initiation-settlement.yaml](svc-pay-initiation-settlement.yaml) | Payment initiation and settlement | `evt.pay.payment.v1` | nine payment and loan-payment event types (see the spec) | Domain events raised; no publisher adapter |
+| [svc-pay-request-to-pay.yaml](svc-pay-request-to-pay.yaml) | Request to pay | `evt.pay.rtp.v1` | `Payments.PayRequest.*.v1`: Created, Accepted, Rejected | Published to legacy `rtp.pay_requests.v1` without envelope |
+| [svc-cus-profile-kyc.yaml](svc-cus-profile-kyc.yaml) | Customer profile and KYC | `evt.cus.customer.v1` | seven customer event types (see the spec) | Published after save via an external `DomainEventPublisher`; no outbox |
 
-Full topic names are `<namespace>.<event>.v1`. A service that consumes also has a dead-letter topic `<namespace>.dlq.v1`
-in its own namespace; a publish-only service (payment initiation and settlement, request to pay, recurring mandates, bulk) lists none.
+One topic per aggregate (ADR-019, owner decision 2026-10-08): every event of a namespace's aggregate goes to
+`<namespace>.v<N>`, keyed by the aggregate id, so one aggregate instance's events stay in order in one partition.
+In a spec that is one channel holding every event type of the aggregate as a message. Each message fixes its
+`eventType` with a `const` in the payload and declares the same `const` for the `eventType` record header
+(`EventHeaders`); the catalog check enforces both and rejects per-event topics. Consumers skip event types they
+do not handle. A namespace whose service consumes a topic also has a dead-letter topic `<namespace>.dlq.v1`.
 
 Dead-letter topics are consumer-owned (ADR-019 in the ADR repo): a consumer that gives up on a record after bounded
 retries writes it to the DLQ in **its own** namespace, never to the source topic's namespace. For example, the loan
-service dead-letters a failed `evt.pay.payment.loan-payment-completed.v1` record to `evt.ln.loan.dlq.v1`, not to
+service dead-letters a failed `evt.pay.payment.v1` record to `evt.ln.loan.dlq.v1`, not to
 `evt.pay.payment.dlq.v1`. The `DeadLetterHeaders` in [common/event-envelope.yaml](common/event-envelope.yaml)
 (`dlq-original-topic`, `dlq-original-partition`, `dlq-original-offset`, `dlq-consumer-group`) identify the source,
-so the owning team can replay it. The loan spec declares its own `LoanDeadLetterHeaders`, which mirror what its
-consumer writes (every header a string, `dlq-error-class` required). A spec lists its DLQ as a `send` channel in its own namespace; the catalog check
+so the owning team can replay it. Every dead-letter header value is UTF-8 text, numbers as decimal text, because
+Kafka header values are bytes. A dead-letter message keeps the poison record's value and key unchanged, so its
+payload need not be the envelope (it may be raw bytes); its headers must be the common `DeadLetterHeaders`.
+A spec lists its DLQ as a `send` channel in its own namespace; the catalog check
 rejects a send channel outside it. Topics are provisioned by `scripts/kafka/create-topics.sh` in
 `fintechbankx-platform-event-streaming-kafka`.
 
 No other fintechbankx service publishes events in code today (consent, account data, payee, metadata, open data,
-risk, compliance, bulk and recurring payments). Risk, compliance and consent are
+risk, compliance, bulk and recurring payments). Risk, compliance, consent, recurring mandates and bulk payments are
 expected publishers and are listed in the catalog index without a file. Add a contract here, and update the index
 entry, when the provider adds one.
 
@@ -57,16 +61,14 @@ Status today (Proposed):
 | `svc-ln-loan-lifecycle` | `evt.ln.loan` | `contract-only` | outbox and relay on unmerged provider branch `claude/project-thread-ty79y4` |
 | `svc-pay-initiation-settlement` | `evt.pay.payment` | `contract-only` | outbox and relay on unmerged provider branch `claude/project-thread-ty79y4` |
 | `svc-cus-profile-kyc` | `evt.cus.customer` | `contract-only` | outbox and relay on unmerged provider branch `claude/project-thread-ty79y4` |
-| `svc-pay-request-to-pay` | `evt.pay.rtp` | `publishes-legacy` | legacy topic `rtp.pay_requests.v1`, no envelope; outbox and relay on unmerged provider branch `claude/lending-payments-deployable-zxfdi1`, which retires the legacy topic with no dual-publish (its publisher never started) |
+| `svc-pay-request-to-pay` | `evt.pay.rtp` | `publishes-legacy` | legacy topic `rtp.pay_requests.v1`, no envelope |
 | `svc-rsk-decisioning` | `evt.rsk.risk` | `no-contract` | expected |
 | `svc-cmp-evidence` | `evt.cmp.compliance` | `no-contract` | expected |
 | `svc-of-consent-authorization` | `evt.of.consent` | `no-contract` | expected |
-| `svc-pay-recurring-mandates` | `evt.pay.mandate` | `contract-only` | outbox and relay on unmerged provider branch `claude/lending-payments-deployable-zxfdi1` |
-| `svc-pay-bulk-orchestration` | `evt.pay.bulk` | `contract-only` | outbox and relay on unmerged provider branch `claude/lending-payments-deployable-zxfdi1` |
+| `svc-pay-recurring-mandates` | `evt.pay.mandate` | `no-contract` | expected |
+| `svc-pay-bulk-orchestration` | `evt.pay.bulk` | `no-contract` | expected |
 
-No provider default branch carries its own AsyncAPI file yet, so every `providerSpecPath` is `null`. The loan, payment
-initiation and settlement, request-to-pay, recurring-mandates and bulk providers have `api/asyncapi/<service-id>.yaml` on their
-unmerged branches; each catalog copy names the provider commit it mirrors in its header comment. Set the path when they merge.
+No provider repository carries its own AsyncAPI file yet, so every `providerSpecPath` is `null`.
 
 ## Checks
 
@@ -89,8 +91,12 @@ for spec in asyncapi/*.yaml; do npx -y @asyncapi/cli@2.13.0 validate "$spec"; do
 `npx @asyncapi/cli@2.13.0 diff` is not used because it does not support AsyncAPI 3.0 documents. The breaking check
 needs full history; the `ci/test` checkout uses `fetch-depth: 0`.
 
+Provider repositories run the same script unchanged on their own directory: set `ASYNCAPI_DIR` to the spec
+directory relative to the repository root (for example `ASYNCAPI_DIR=api/asyncapi`), with `BASE_REF=origin/main`
+(ADR-019 section 5). The accepted-breaking file then sits next to the spec in that directory.
+
 Accepted breaking changes go in `asyncapi/<service-id>.accepted-breaking.txt`, one finding key per line exactly as
-the check prints it (for example `removed-property evt.pay.rtp.accepted.v1 PayRequestAccepted $.data.creditorName`),
+the check prints it (for example `removed-property evt.pay.rtp.v1 PayRequestAccepted $.data.creditorName`),
 with a `#` comment that links the major-version and dual-publish plan. Event payload schemas and their own
 compatibility checks live in `fintechbankx-governance-api-contracts-schema-registry`, generated from these specs.
 
@@ -105,19 +111,21 @@ npx -y @asyncapi/cli@2.13.0 validate asyncapi/<service-id>.yaml
 ## Consumers
 
 A spec may declare channels it only consumes (every operation on the channel has `action: receive`), for example
-`svc-ln-loan-lifecycle` consuming `evt.pay.payment.loan-payment-completed.v1` with group
+`svc-ln-loan-lifecycle` consuming `evt.pay.payment.v1` (handling only the loan-payment event types) with group
 `cg.svc-ln-loan-lifecycle.loan-repayment-allocation.v1`. Such channels may sit in another namespace, are listed in the
 index entry's `consumes` array (not in `channels`), and the check fails if the owning namespace's spec is in the catalog
 but does not publish that topic.
 
 ## Change rules
 
-- Adding an optional field is a minor change: bump `info.version` minor.
-- Removing or renaming a field, changing a type or changing meaning is a new major version on a new topic
-  (`...v2`); the producer dual-publishes until every consumer has moved.
+- Adding an optional field or a new event type is a minor change: bump `info.version` minor.
+- Removing or renaming a field, changing a type or changing meaning of one event is a new event major on the same
+  topic (a new message with `eventType` `...v2`); the producer publishes both majors until every consumer has moved.
+- The topic major (`<namespace>.v2`) changes only when the record key, partition count or cleanup policy changes;
+  the producer then dual-publishes to both topics.
 - Versions count from the first time a spec lands on this catalog's `main`. Before that the spec is pre-release:
   it stays `1.0.0`, carries no version-history paragraph, and a change that would be breaking later is folded
-  into `1.0.0` (no `accepted-breaking.txt` entry, no `.v2` topic). A pre-release spec has no consumers by
+  into `1.0.0` (no `accepted-breaking.txt` entry, no new event major). A pre-release spec has no consumers by
   definition, because consumers build against the catalog's `main`.
 - Change the contract in the provider repository first, then mirror it here in a separate PR, updating
   `catalog/index.json` in the same PR.
@@ -131,5 +139,5 @@ Every spec declares two servers, matching ADR-024 (`docs/architecture/decisions/
   `userPassword` (the SASL family) with `x-sasl-mechanism: AWS_MSK_IAM`.
 - `local`: Strimzi in namespace `kafka` for local and non-AWS clusters, mutual TLS.
 
-Client conventions (consumer groups `cg.<svc>.<purpose>.v<major>`, the `outbox_pending_events` gauge, `traceparent` header) are in
+Client conventions (consumer groups `cg.<svc>.<purpose>.v<major>`, the outbox relay metrics such as `outbox.oldest.pending.age.seconds`, `traceparent` header) are in
 `docs/guides/SERVICE_CLIENT_CONFIGURATION.md` of `fintechbankx-platform-event-streaming-kafka`.

@@ -167,13 +167,16 @@ Examples:
 
 Format:
 
-`evt.<context-code>.<aggregate>.<event-name>.v<major>`
+`evt.<context-code>.<aggregate>.v<major>`
+
+One topic per aggregate (ADR-019, owner decision 2026-10-08): every event of the aggregate goes there, keyed by
+the aggregate id, with the event type in the `eventType` record header.
 
 Examples:
 
-1. `evt.of.consent.created.v1`
-2. `evt.pay.payment.settled.v1`
-3. `evt.ln.loan.disbursed.v1`
+1. `evt.of.consent.v1`
+2. `evt.pay.payment.v1`
+3. `evt.ln.loan.v1`
 
 ### Event type (header/payload metadata)
 

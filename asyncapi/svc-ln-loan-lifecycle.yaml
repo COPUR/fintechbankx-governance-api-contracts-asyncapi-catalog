@@ -1,6 +1,5 @@
 # AsyncAPI contract for svc-ln-loan-lifecycle.
 # Status: Proposed. The provider repository owns this contract; this catalog mirrors it.
-# Provider copy: fintechbankx-lendingpayments-loan-lifecycle-core api/asyncapi/svc-ln-loan-lifecycle.yaml (branch claude/project-thread-ty79y4, commit 32fc282).
 # Naming: docs/NAMING_CONVENTION_DDD_EDA_BUSINESS_CONTEXT.md
 # Validate: npx -y @asyncapi/cli@2.13.0 validate asyncapi/svc-ln-loan-lifecycle.yaml
 asyncapi: 3.0.0
@@ -13,11 +12,9 @@ info:
 
     Status: Proposed. Owner: Loan Lifecycle Squad, Lending and Money Movement Tribe. Event namespace: `evt.ln.loan`.
 
-    Implementation status: on the provider branch every published record is written to the transactional outbox in the same database transaction as the loan change and relayed to Kafka by OutboxRelay, keyed by loanId (per-loan order). The envelope matches LoanEventEnvelopeFactory; aggregateVersion is the loan version after the change; causationId is null. Money is a decimal string plus an ISO 4217 currency; payloads carry ids only, no customer personal data. Record headers: eventType, eventId, correlationId, x-fapi-interaction-id (same value as correlationId) and, when the request was traced, traceparent (W3C). The relay stays off (OUTBOX_RELAY_ENABLED=false) until these topics are catalogued.
+    Implementation status: Contract only. Events are raised on the Loan aggregate (loan-domain Loan.java) but the repository has no publisher adapter or outbox yet.
 
-    Consumes: evt.pay.payment.loan-payment-completed.v1 (svc-pay-initiation-settlement) with group cg.svc-ln-loan-lifecycle.loan-repayment-allocation.v1, applied once per eventId (inbox) and once per paymentId; off until LOAN_REPAYMENT_CONSUMER_ENABLED=true. Records it gives up on go to its own dead-letter topic evt.ln.loan.dlq.v1 (consumer-owned DLQ, ADR-019).
-
-    Every message uses the standard envelope (common/event-envelope.yaml). Record key is the aggregateId. Topics use cleanup.policy=delete. Adding an optional field is a minor change; any removal, rename or type change is a new major version on a new topic with dual-publish.
+    Every message uses the standard envelope (common/event-envelope.yaml). All events go to one topic per aggregate, `evt.ln.loan.v1`, with the record key = aggregateId and the eventType, eventId and correlationId record headers (ADR-019). The topic uses cleanup.policy=delete. Adding an optional field or a new event type is a minor change; a removal, rename or type change in one event is a new event major (eventType ...v2) published on the same topic alongside the old one until consumers move.
   tags:
   - name: lending
   - name: evt.ln.loan
@@ -29,8 +26,8 @@ servers:
   msk:
     host: '{bootstrapServers}'
     protocol: kafka-secure
-    description: Amazon MSK cluster of the FinTechBankX event platform (svc-evt-streaming) on AWS. TLS in transit,
-      SASL_SSL with mechanism AWS_MSK_IAM using the service's IRSA role (ADR-024, platform contract 2026-10-08).
+    description: Amazon MSK cluster of the FinTechBankX event platform (svc-evt-streaming) on AWS. TLS in transit, SASL_SSL
+      with mechanism AWS_MSK_IAM using the service's IRSA role (ADR-024, platform contract 2026-10-08).
     variables:
       bootstrapServers:
         description: MSK IAM bootstrap brokers (port 9098), injected per environment by the platform.
@@ -39,134 +36,40 @@ servers:
   local:
     host: '{bootstrapServers}'
     protocol: kafka-secure
-    description: Strimzi cluster in namespace kafka, for local and non-AWS environments only. Mutual TLS with
-      Strimzi-issued client certificates.
+    description: Strimzi cluster in namespace kafka, for local and non-AWS environments only. Mutual TLS with Strimzi-issued
+      client certificates.
     variables:
       bootstrapServers:
         description: Strimzi TLS bootstrap service, injected per environment.
     security:
     - $ref: '#/components/securitySchemes/mtls'
 channels:
-  created:
-    address: evt.ln.loan.created.v1
-    title: evt.ln.loan.created.v1
-    description: Lending.Loan.Created.v1. A loan application was accepted (status CREATED).
+  loan:
+    address: evt.ln.loan.v1
+    title: evt.ln.loan.v1
+    description: 'Every event of the loan aggregate, keyed by aggregateId so that the events of one aggregate instance stay
+      in order in one partition (ADR-019, one topic per aggregate). The eventType record header names the event:
+      Lending.Loan.Created.v1, Lending.Loan.Approved.v1, Lending.Loan.Rejected.v1, Lending.Loan.Disbursed.v1,
+      Lending.Loan.Cancelled.v1, Lending.Loan.PaymentMade.v1, Lending.Loan.FullyPaid.v1. Consumers skip event types they
+      do not handle.'
     messages:
       LoanCreated:
         $ref: '#/components/messages/LoanCreated'
-    bindings:
-      kafka:
-        topic: evt.ln.loan.created.v1
-        partitions: 3
-        replicas: 3
-        topicConfiguration:
-          cleanup.policy:
-          - delete
-          retention.ms: 604800000
-          max.message.bytes: 1048576
-        bindingVersion: 0.5.0
-  approved:
-    address: evt.ln.loan.approved.v1
-    title: evt.ln.loan.approved.v1
-    description: Lending.Loan.Approved.v1. The loan was approved.
-    messages:
       LoanApproved:
         $ref: '#/components/messages/LoanApproved'
-    bindings:
-      kafka:
-        topic: evt.ln.loan.approved.v1
-        partitions: 3
-        replicas: 3
-        topicConfiguration:
-          cleanup.policy:
-          - delete
-          retention.ms: 604800000
-          max.message.bytes: 1048576
-        bindingVersion: 0.5.0
-  rejected:
-    address: evt.ln.loan.rejected.v1
-    title: evt.ln.loan.rejected.v1
-    description: Lending.Loan.Rejected.v1. The loan was rejected.
-    messages:
       LoanRejected:
         $ref: '#/components/messages/LoanRejected'
-    bindings:
-      kafka:
-        topic: evt.ln.loan.rejected.v1
-        partitions: 3
-        replicas: 3
-        topicConfiguration:
-          cleanup.policy:
-          - delete
-          retention.ms: 604800000
-          max.message.bytes: 1048576
-        bindingVersion: 0.5.0
-  disbursed:
-    address: evt.ln.loan.disbursed.v1
-    title: evt.ln.loan.disbursed.v1
-    description: Lending.Loan.Disbursed.v1. Credit was reserved with the customer service and the loan disbursed.
-    messages:
       LoanDisbursed:
         $ref: '#/components/messages/LoanDisbursed'
-    bindings:
-      kafka:
-        topic: evt.ln.loan.disbursed.v1
-        partitions: 3
-        replicas: 3
-        topicConfiguration:
-          cleanup.policy:
-          - delete
-          retention.ms: 604800000
-          max.message.bytes: 1048576
-        bindingVersion: 0.5.0
-  cancelled:
-    address: evt.ln.loan.cancelled.v1
-    title: evt.ln.loan.cancelled.v1
-    description: Lending.Loan.Cancelled.v1. The loan was cancelled before disbursement.
-    messages:
       LoanCancelled:
         $ref: '#/components/messages/LoanCancelled'
-    bindings:
-      kafka:
-        topic: evt.ln.loan.cancelled.v1
-        partitions: 3
-        replicas: 3
-        topicConfiguration:
-          cleanup.policy:
-          - delete
-          retention.ms: 604800000
-          max.message.bytes: 1048576
-        bindingVersion: 0.5.0
-  paymentMade:
-    address: evt.ln.loan.payment-made.v1
-    title: evt.ln.loan.payment-made.v1
-    description: Lending.Loan.PaymentMade.v1. A repayment was applied to the schedule (interest first, in installment
-      order).
-    messages:
       LoanPaymentMade:
         $ref: '#/components/messages/LoanPaymentMade'
-    bindings:
-      kafka:
-        topic: evt.ln.loan.payment-made.v1
-        partitions: 3
-        replicas: 3
-        topicConfiguration:
-          cleanup.policy:
-          - delete
-          retention.ms: 604800000
-          max.message.bytes: 1048576
-        bindingVersion: 0.5.0
-  fullyPaid:
-    address: evt.ln.loan.fully-paid.v1
-    title: evt.ln.loan.fully-paid.v1
-    description: Lending.Loan.FullyPaid.v1. The schedule is fully paid; the customer's credit is released after this
-      commits.
-    messages:
       LoanFullyPaid:
         $ref: '#/components/messages/LoanFullyPaid'
     bindings:
       kafka:
-        topic: evt.ln.loan.fully-paid.v1
+        topic: evt.ln.loan.v1
         partitions: 3
         replicas: 3
         topicConfiguration:
@@ -175,164 +78,71 @@ channels:
           retention.ms: 604800000
           max.message.bytes: 1048576
         bindingVersion: 0.5.0
-  deadLetter:
-    address: evt.ln.loan.dlq.v1
-    title: evt.ln.loan.dlq.v1
-    description: Dead-letter topic owned by svc-ln-loan-lifecycle as a consumer (ADR-019). The repayment consumer
-      (group cg.svc-ln-loan-lifecycle.loan-repayment-allocation.v1) writes a record here after 3 failed retries
-      (backoff 1 s, 2 s, 4 s), or at once for a record that breaks its contract. The original key and value are kept
-      unchanged; the dlq-* headers say where it came from and why. Replayed by the Loan Lifecycle Squad.
-    messages:
-      DeadLetter:
-        $ref: '#/components/messages/DeadLetter'
-    bindings:
-      kafka:
-        topic: evt.ln.loan.dlq.v1
-        partitions: 3
-        replicas: 3
-        topicConfiguration:
-          cleanup.policy:
-          - delete
-          retention.ms: 1209600000
-          max.message.bytes: 1048576
-        bindingVersion: 0.5.0
-  loanPaymentCompleted:
-    address: evt.pay.payment.loan-payment-completed.v1
-    title: evt.pay.payment.loan-payment-completed.v1
-    description: Consumed. Payments.Payment.LoanPaymentCompleted.v1, published by svc-pay-initiation-settlement when a
-      loan repayment settled. svc-ln-loan-lifecycle applies it to the schedule once per eventId (inbox) and once per
-      paymentId. Off until LOAN_REPAYMENT_CONSUMER_ENABLED=true.
-    messages:
-      LoanPaymentCompleted:
-        $ref: '#/components/messages/LoanPaymentCompleted'
 operations:
   publishLoanCreated:
     action: send
     title: Publish Lending.Loan.Created.v1
     summary: svc-ln-loan-lifecycle publishes Lending.Loan.Created.v1 through its transactional outbox.
     channel:
-      $ref: '#/channels/created'
+      $ref: '#/channels/loan'
     messages:
-    - $ref: '#/channels/created/messages/LoanCreated'
+    - $ref: '#/channels/loan/messages/LoanCreated'
   publishLoanApproved:
     action: send
     title: Publish Lending.Loan.Approved.v1
     summary: svc-ln-loan-lifecycle publishes Lending.Loan.Approved.v1 through its transactional outbox.
     channel:
-      $ref: '#/channels/approved'
+      $ref: '#/channels/loan'
     messages:
-    - $ref: '#/channels/approved/messages/LoanApproved'
+    - $ref: '#/channels/loan/messages/LoanApproved'
   publishLoanRejected:
     action: send
     title: Publish Lending.Loan.Rejected.v1
     summary: svc-ln-loan-lifecycle publishes Lending.Loan.Rejected.v1 through its transactional outbox.
     channel:
-      $ref: '#/channels/rejected'
+      $ref: '#/channels/loan'
     messages:
-    - $ref: '#/channels/rejected/messages/LoanRejected'
+    - $ref: '#/channels/loan/messages/LoanRejected'
   publishLoanDisbursed:
     action: send
     title: Publish Lending.Loan.Disbursed.v1
     summary: svc-ln-loan-lifecycle publishes Lending.Loan.Disbursed.v1 through its transactional outbox.
     channel:
-      $ref: '#/channels/disbursed'
+      $ref: '#/channels/loan'
     messages:
-    - $ref: '#/channels/disbursed/messages/LoanDisbursed'
+    - $ref: '#/channels/loan/messages/LoanDisbursed'
   publishLoanCancelled:
     action: send
     title: Publish Lending.Loan.Cancelled.v1
     summary: svc-ln-loan-lifecycle publishes Lending.Loan.Cancelled.v1 through its transactional outbox.
     channel:
-      $ref: '#/channels/cancelled'
+      $ref: '#/channels/loan'
     messages:
-    - $ref: '#/channels/cancelled/messages/LoanCancelled'
+    - $ref: '#/channels/loan/messages/LoanCancelled'
   publishLoanPaymentMade:
     action: send
     title: Publish Lending.Loan.PaymentMade.v1
     summary: svc-ln-loan-lifecycle publishes Lending.Loan.PaymentMade.v1 through its transactional outbox.
     channel:
-      $ref: '#/channels/paymentMade'
+      $ref: '#/channels/loan'
     messages:
-    - $ref: '#/channels/paymentMade/messages/LoanPaymentMade'
+    - $ref: '#/channels/loan/messages/LoanPaymentMade'
   publishLoanFullyPaid:
     action: send
     title: Publish Lending.Loan.FullyPaid.v1
     summary: svc-ln-loan-lifecycle publishes Lending.Loan.FullyPaid.v1 through its transactional outbox.
     channel:
-      $ref: '#/channels/fullyPaid'
+      $ref: '#/channels/loan'
     messages:
-    - $ref: '#/channels/fullyPaid/messages/LoanFullyPaid'
-  publishDeadLetter:
-    action: send
-    title: Dead-letter a consumed record
-    summary: The repayment consumer writes a record it could not process to its own dead-letter topic.
-    channel:
-      $ref: '#/channels/deadLetter'
-    messages:
-    - $ref: '#/channels/deadLetter/messages/DeadLetter'
-  receiveLoanPaymentCompleted:
-    action: receive
-    title: Consume Payments.Payment.LoanPaymentCompleted.v1
-    summary: Allocates a settled loan repayment to the schedule (interest first, in installment order).
-    channel:
-      $ref: '#/channels/loanPaymentCompleted'
-    messages:
-    - $ref: '#/channels/loanPaymentCompleted/messages/LoanPaymentCompleted'
-    bindings:
-      kafka:
-        groupId:
-          type: string
-          const: cg.svc-ln-loan-lifecycle.loan-repayment-allocation.v1
-        bindingVersion: 0.5.0
+    - $ref: '#/channels/loan/messages/LoanFullyPaid'
 components:
   schemas:
     EventEnvelope:
       $ref: ./common/event-envelope.yaml#/EventEnvelope
     EventHeaders:
       $ref: ./common/event-envelope.yaml#/EventHeaders
-    LoanRecordHeaders:
-      description: Headers on every record this service publishes. x-fapi-interaction-id is always set (same value as
-        correlationId); traceparent only when the request was traced.
-      allOf:
-      - $ref: '#/components/schemas/EventHeaders'
-      - type: object
-        required:
-        - x-fapi-interaction-id
-    LoanDeadLetterHeaders:
-      type: object
-      description: Headers the repayment consumer adds when it dead-letters a record. Kafka header values are written as
-        strings. eventType, eventId and correlationId are copied from the original record when it had them.
-      required:
-      - dlq-original-topic
-      - dlq-original-partition
-      - dlq-original-offset
-      - dlq-consumer-group
-      - dlq-attempts
-      - dlq-error-class
-      - dlq-failed-at
-      properties:
-        dlq-original-topic:
-          type: string
-        dlq-original-partition:
-          type: string
-        dlq-original-offset:
-          type: string
-        dlq-consumer-group:
-          type: string
-        dlq-attempts:
-          type: string
-        dlq-error-class:
-          type: string
-          description: Exception class name only; never the message (it may contain personal data).
-        dlq-failed-at:
-          type: string
-          format: date-time
-        eventType:
-          type: string
-        eventId:
-          type: string
-        correlationId:
-          type: string
+    DeadLetterHeaders:
+      $ref: ./common/event-envelope.yaml#/DeadLetterHeaders
     MonetaryAmount:
       $ref: ./common/event-envelope.yaml#/MonetaryAmount
     DecimalAmount:
@@ -340,14 +150,15 @@ components:
     LoanCreatedData:
       type: object
       description: Payload of Lending.Loan.Created.v1.
-      additionalProperties: false
       properties:
         loanId:
           type: string
           description: Loan id (same as aggregateId).
+          minLength: 1
         customerId:
           type: string
-          description: Customer profile id (svc-cus-profile-kyc). No other customer data is published.
+          description: Customer id.
+          minLength: 1
         principalAmount:
           allOf:
           - $ref: '#/components/schemas/MonetaryAmount'
@@ -359,14 +170,15 @@ components:
     LoanApprovedData:
       type: object
       description: Payload of Lending.Loan.Approved.v1.
-      additionalProperties: false
       properties:
         loanId:
           type: string
           description: Loan id.
+          minLength: 1
         customerId:
           type: string
-          description: Customer profile id (svc-cus-profile-kyc). No other customer data is published.
+          description: Customer id.
+          minLength: 1
         principalAmount:
           allOf:
           - $ref: '#/components/schemas/MonetaryAmount'
@@ -378,33 +190,34 @@ components:
     LoanRejectedData:
       type: object
       description: Payload of Lending.Loan.Rejected.v1.
-      additionalProperties: false
       properties:
         loanId:
           type: string
           description: Loan id.
+          minLength: 1
         customerId:
           type: string
-          description: Customer profile id (svc-cus-profile-kyc). No other customer data is published.
+          description: Customer id.
+          minLength: 1
         reason:
-          type:
-          - string
-          - 'null'
-          description: Rejection reason code or text, or null. Must not contain personal data.
+          type: string
+          description: Rejection reason code or text. Must not contain personal data.
       required:
       - loanId
       - customerId
+      - reason
     LoanDisbursedData:
       type: object
       description: Payload of Lending.Loan.Disbursed.v1.
-      additionalProperties: false
       properties:
         loanId:
           type: string
           description: Loan id.
+          minLength: 1
         customerId:
           type: string
-          description: Customer profile id (svc-cus-profile-kyc). No other customer data is published.
+          description: Customer id.
+          minLength: 1
         principalAmount:
           allOf:
           - $ref: '#/components/schemas/MonetaryAmount'
@@ -421,36 +234,34 @@ components:
     LoanCancelledData:
       type: object
       description: Payload of Lending.Loan.Cancelled.v1.
-      additionalProperties: false
       properties:
         loanId:
           type: string
           description: Loan id.
+          minLength: 1
         customerId:
           type: string
-          description: Customer profile id (svc-cus-profile-kyc). No other customer data is published.
+          description: Customer id.
+          minLength: 1
         reason:
-          type:
-          - string
-          - 'null'
-          description: Cancellation reason, or null. Must not contain personal data.
+          type: string
+          description: Cancellation reason. Must not contain personal data.
       required:
       - loanId
       - customerId
+      - reason
     LoanPaymentMadeData:
       type: object
       description: Payload of Lending.Loan.PaymentMade.v1.
-      additionalProperties: false
       properties:
         loanId:
           type: string
           description: Loan id.
+          minLength: 1
         customerId:
           type: string
-          description: Customer profile id (svc-cus-profile-kyc). No other customer data is published.
-        paymentId:
-          type: string
-          description: The payment service's payment id for repayments it settled; this service's id for API repayments.
+          description: Customer id.
+          minLength: 1
         paymentAmount:
           allOf:
           - $ref: '#/components/schemas/MonetaryAmount'
@@ -466,38 +277,21 @@ components:
       required:
       - loanId
       - customerId
-      - paymentId
       - paymentAmount
       - previousBalance
       - newBalance
-    LoanPaymentCompletedData:
-      type: object
-      description: Fields of Payments.Payment.LoanPaymentCompleted.v1 that this service reads; others (customerId,
-        transactionReference, completedAt) are ignored.
-      properties:
-        paymentId:
-          type: string
-        loanId:
-          type: string
-        actualAmount:
-          allOf:
-          - $ref: '#/components/schemas/MonetaryAmount'
-          description: Amount actually paid.
-      required:
-      - paymentId
-      - loanId
-      - actualAmount
     LoanFullyPaidData:
       type: object
       description: Payload of Lending.Loan.FullyPaid.v1.
-      additionalProperties: false
       properties:
         loanId:
           type: string
           description: Loan id.
+          minLength: 1
         customerId:
           type: string
-          description: Customer profile id (svc-cus-profile-kyc). No other customer data is published.
+          description: Customer id.
+          minLength: 1
       required:
       - loanId
       - customerId
@@ -508,7 +302,12 @@ components:
       summary: A loan application was created.
       contentType: application/json
       headers:
-        $ref: '#/components/schemas/LoanRecordHeaders'
+        allOf:
+        - $ref: '#/components/schemas/EventHeaders'
+        - type: object
+          properties:
+            eventType:
+              const: Lending.Loan.Created.v1
       payload:
         allOf:
         - $ref: '#/components/schemas/EventEnvelope'
@@ -516,8 +315,6 @@ components:
           properties:
             eventType:
               const: Lending.Loan.Created.v1
-            causationId:
-              type: 'null'
             producer:
               const: svc-ln-loan-lifecycle
             data:
@@ -535,7 +332,12 @@ components:
       summary: The loan was approved.
       contentType: application/json
       headers:
-        $ref: '#/components/schemas/LoanRecordHeaders'
+        allOf:
+        - $ref: '#/components/schemas/EventHeaders'
+        - type: object
+          properties:
+            eventType:
+              const: Lending.Loan.Approved.v1
       payload:
         allOf:
         - $ref: '#/components/schemas/EventEnvelope'
@@ -543,8 +345,6 @@ components:
           properties:
             eventType:
               const: Lending.Loan.Approved.v1
-            causationId:
-              type: 'null'
             producer:
               const: svc-ln-loan-lifecycle
             data:
@@ -562,7 +362,12 @@ components:
       summary: The loan was rejected.
       contentType: application/json
       headers:
-        $ref: '#/components/schemas/LoanRecordHeaders'
+        allOf:
+        - $ref: '#/components/schemas/EventHeaders'
+        - type: object
+          properties:
+            eventType:
+              const: Lending.Loan.Rejected.v1
       payload:
         allOf:
         - $ref: '#/components/schemas/EventEnvelope'
@@ -570,8 +375,6 @@ components:
           properties:
             eventType:
               const: Lending.Loan.Rejected.v1
-            causationId:
-              type: 'null'
             producer:
               const: svc-ln-loan-lifecycle
             data:
@@ -589,7 +392,12 @@ components:
       summary: The loan principal was disbursed.
       contentType: application/json
       headers:
-        $ref: '#/components/schemas/LoanRecordHeaders'
+        allOf:
+        - $ref: '#/components/schemas/EventHeaders'
+        - type: object
+          properties:
+            eventType:
+              const: Lending.Loan.Disbursed.v1
       payload:
         allOf:
         - $ref: '#/components/schemas/EventEnvelope'
@@ -597,8 +405,6 @@ components:
           properties:
             eventType:
               const: Lending.Loan.Disbursed.v1
-            causationId:
-              type: 'null'
             producer:
               const: svc-ln-loan-lifecycle
             data:
@@ -616,7 +422,12 @@ components:
       summary: The loan was cancelled.
       contentType: application/json
       headers:
-        $ref: '#/components/schemas/LoanRecordHeaders'
+        allOf:
+        - $ref: '#/components/schemas/EventHeaders'
+        - type: object
+          properties:
+            eventType:
+              const: Lending.Loan.Cancelled.v1
       payload:
         allOf:
         - $ref: '#/components/schemas/EventEnvelope'
@@ -624,8 +435,6 @@ components:
           properties:
             eventType:
               const: Lending.Loan.Cancelled.v1
-            causationId:
-              type: 'null'
             producer:
               const: svc-ln-loan-lifecycle
             data:
@@ -643,7 +452,12 @@ components:
       summary: A repayment was applied to the loan balance.
       contentType: application/json
       headers:
-        $ref: '#/components/schemas/LoanRecordHeaders'
+        allOf:
+        - $ref: '#/components/schemas/EventHeaders'
+        - type: object
+          properties:
+            eventType:
+              const: Lending.Loan.PaymentMade.v1
       payload:
         allOf:
         - $ref: '#/components/schemas/EventEnvelope'
@@ -651,8 +465,6 @@ components:
           properties:
             eventType:
               const: Lending.Loan.PaymentMade.v1
-            causationId:
-              type: 'null'
             producer:
               const: svc-ln-loan-lifecycle
             data:
@@ -670,7 +482,12 @@ components:
       summary: The loan balance reached zero.
       contentType: application/json
       headers:
-        $ref: '#/components/schemas/LoanRecordHeaders'
+        allOf:
+        - $ref: '#/components/schemas/EventHeaders'
+        - type: object
+          properties:
+            eventType:
+              const: Lending.Loan.FullyPaid.v1
       payload:
         allOf:
         - $ref: '#/components/schemas/EventEnvelope'
@@ -678,8 +495,6 @@ components:
           properties:
             eventType:
               const: Lending.Loan.FullyPaid.v1
-            causationId:
-              type: 'null'
             producer:
               const: svc-ln-loan-lifecycle
             data:
@@ -691,40 +506,13 @@ components:
             description: aggregateId (loanId).
           bindingVersion: 0.5.0
       x-source-class: com.bank.loan.domain.LoanFullyPaidEvent
-    LoanPaymentCompleted:
-      name: LoanPaymentCompleted
-      title: Payments.Payment.LoanPaymentCompleted.v1
-      summary: Consumed. A loan repayment settled in the payment service.
-      contentType: application/json
-      headers:
-        $ref: '#/components/schemas/EventHeaders'
-      payload:
-        allOf:
-        - $ref: '#/components/schemas/EventEnvelope'
-        - type: object
-          properties:
-            eventType:
-              const: Payments.Payment.LoanPaymentCompleted.v1
-            producer:
-              const: svc-pay-initiation-settlement
-            data:
-              $ref: '#/components/schemas/LoanPaymentCompletedData'
-      bindings:
-        kafka:
-          key:
-            type: string
-            description: aggregateId (paymentId).
-          bindingVersion: 0.5.0
     DeadLetter:
       name: DeadLetter
-      title: Dead letter for svc-ln-loan-lifecycle consumers
-      summary: A consumed record (today evt.pay.payment.loan-payment-completed.v1) that the repayment consumer could not
-        process after bounded retries. Key and value are the original record's, unchanged. The payload is declared
-        as the envelope because the catalog check requires every message to use it; a record that failed because it
-        was not valid JSON or broke the envelope is copied as is.
+      title: Dead letter for evt.ln.loan
+      summary: A message from this namespace that a consumer could not process after bounded retries.
       contentType: application/json
       headers:
-        $ref: '#/components/schemas/LoanDeadLetterHeaders'
+        $ref: '#/components/schemas/DeadLetterHeaders'
       payload:
         $ref: '#/components/schemas/EventEnvelope'
       bindings:
@@ -736,9 +524,9 @@ components:
   securitySchemes:
     mskIam:
       type: userPassword
-      description: SASL_SSL with SASL mechanism AWS_MSK_IAM. There is no user or password; the client signs with the
-        AWS credentials of its IRSA role, and a topic-scoped IAM policy (terraform module msk-client-access) grants
-        produce or consume rights. AsyncAPI has no IAM scheme type, so userPassword stands for the SASL family.
+      description: SASL_SSL with SASL mechanism AWS_MSK_IAM. There is no user or password; the client signs with the AWS
+        credentials of its IRSA role, and a topic-scoped IAM policy (terraform module msk-client-access) grants produce
+        or consume rights. AsyncAPI has no IAM scheme type, so userPassword stands for the SASL family.
       x-sasl-mechanism: AWS_MSK_IAM
     mtls:
       type: X509
