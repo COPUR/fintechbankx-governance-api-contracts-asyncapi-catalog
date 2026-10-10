@@ -139,5 +139,5 @@ Every spec declares two servers, matching ADR-024 (`docs/architecture/decisions/
   `userPassword` (the SASL family) with `x-sasl-mechanism: AWS_MSK_IAM`.
 - `local`: Strimzi in namespace `kafka` for local and non-AWS clusters, mutual TLS.
 
-Client conventions (consumer groups `cg.<svc>.<purpose>.v<major>`, the `outbox_pending_events` gauge, `traceparent` header) are in
+Client conventions (consumer groups `cg.<svc>.<purpose>.v<major>`, the outbox relay metrics such as `outbox.oldest.pending.age.seconds`, `traceparent` header) are in
 `docs/guides/SERVICE_CLIENT_CONFIGURATION.md` of `fintechbankx-platform-event-streaming-kafka`.
