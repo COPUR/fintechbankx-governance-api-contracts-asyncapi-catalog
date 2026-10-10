@@ -54,7 +54,7 @@ plus "expected" entries (`file: null`) for services that will publish but have n
 | `channels` | Full topic addresses declared by the spec, dead-letter topic included |
 | `providerSpecPath` | Path of the AsyncAPI file in the provider repository (for example `api/asyncapi/<service-id>.yaml`), set as soon as the provider carries the file, on its default branch or on the branch named in `pendingImplementation`; `null` only while the provider has none |
 | `implementationStatus` | `contract-only`, `publishes-legacy`, `outbox` or `no-contract` (see `statusValues` in the file) |
-| `pendingImplementation` | Unmerged provider branch that changes the status, if any |
+| `pendingImplementation` | Unmerged provider branch the catalog copy comes from, if any; its `note` names the mirrored provider commit and `pullRequest` the provider PR this catalog PR merges after |
 
 Status today (Proposed):
 
@@ -70,7 +70,7 @@ Status today (Proposed):
 | `svc-pay-recurring-mandates` | `evt.pay.mandate` | `contract-only` | outbox and relay on unmerged provider branch `claude/lending-payments-deployable-zxfdi1` |
 | `svc-pay-bulk-orchestration` | `evt.pay.bulk` | `contract-only` | outbox and relay on unmerged provider branch `claude/lending-payments-deployable-zxfdi1` |
 
-The loan, payments, request-to-pay, recurring-mandates and bulk-orchestration publishers carry `api/asyncapi/<service-id>.yaml` on the provider branch named in `pendingImplementation`, so their `providerSpecPath` is set; each entry's `pendingImplementation.note` names the provider commit its catalog copy mirrors. The other entries stay `null` until their provider carries its own spec.
+The loan, payments, request-to-pay, recurring-mandates and bulk-orchestration publishers carry `api/asyncapi/<service-id>.yaml` on the provider branch named in `pendingImplementation`, so their `providerSpecPath` is set; each entry's `pendingImplementation.note` names the provider commit its catalog copy mirrors, and `pendingImplementation.pullRequest` names the provider PR. The other entries stay `null` until their provider carries its own spec. A catalog PR that points `providerSpecPath` at an unmerged provider branch names that branch in `pendingImplementation` and merges only after the provider PR, so on the catalog's default branch the path always resolves on the provider's default branch.
 
 ## Checks
 
