@@ -50,8 +50,8 @@ channels:
     description: 'Every event of the customer aggregate, keyed by aggregateId so that the events of one aggregate instance
       stay in order in one partition (ADR-019, one topic per aggregate). The eventType record header names the event:
       Customer.Customer.Created.v1, Customer.Customer.ContactUpdated.v1, Customer.Customer.CreditLimitUpdated.v1,
-      Customer.Customer.CreditReserved.v1, Customer.Customer.CreditReleased.v1, Customer.Customer.CreditScoreUpdated.v1.
-      Consumers skip event types they do not handle.'
+      Customer.Customer.CreditReserved.v1, Customer.Customer.CreditReleased.v1, Customer.Customer.CreditScoreUpdated.v1,
+      Customer.Customer.KycStatusChanged.v1. Consumers skip event types they do not handle.'
     messages:
       CustomerCreated:
         $ref: '#/components/messages/CustomerCreated'
@@ -65,6 +65,8 @@ channels:
         $ref: '#/components/messages/CustomerCreditReleased'
       CustomerCreditScoreUpdated:
         $ref: '#/components/messages/CustomerCreditScoreUpdated'
+      CustomerKycStatusChanged:
+        $ref: '#/components/messages/CustomerKycStatusChanged'
     bindings:
       kafka:
         topic: evt.cus.customer.v1
@@ -125,6 +127,14 @@ operations:
       $ref: '#/channels/customer'
     messages:
     - $ref: '#/channels/customer/messages/CustomerCreditScoreUpdated'
+  publishCustomerKycStatusChanged:
+    action: send
+    title: Publish Customer.Customer.KycStatusChanged.v1
+    summary: svc-cus-profile-kyc publishes Customer.Customer.KycStatusChanged.v1 through its transactional outbox.
+    channel:
+      $ref: '#/channels/customer'
+    messages:
+    - $ref: '#/channels/customer/messages/CustomerKycStatusChanged'
 components:
   schemas:
     EventEnvelope:
@@ -223,6 +233,35 @@ components:
       required:
       - customerId
       - newCreditScore
+    CustomerKycStatusChangedData:
+      type: object
+      description: Payload of Customer.Customer.KycStatusChanged.v1. Never carries who made the decision or personal data.
+      properties:
+        customerId:
+          type: string
+          description: Customer id.
+          minLength: 1
+        kycStatus:
+          type: string
+          enum: [PENDING, VERIFIED, REJECTED]
+        previousKycStatus:
+          type: string
+          enum: [PENDING, VERIFIED, REJECTED]
+        kycSource:
+          type: string
+          enum: [MIGRATED, STAFF]
+        verifiedAt:
+          type:
+          - string
+          - 'null'
+          format: date-time
+          description: When the customer was verified; null unless kycStatus is VERIFIED.
+      required:
+      - customerId
+      - kycStatus
+      - previousKycStatus
+      - kycSource
+      - verifiedAt
   messages:
     CustomerCreated:
       name: CustomerCreated
@@ -409,6 +448,36 @@ components:
             description: aggregateId (customerId).
           bindingVersion: 0.5.0
       x-source-class: com.bank.customer.domain.CustomerCreditScoreUpdatedEvent
+    CustomerKycStatusChanged:
+      name: CustomerKycStatusChanged
+      title: Customer.Customer.KycStatusChanged.v1
+      summary: Staff verified or rejected the customer's KYC.
+      contentType: application/json
+      headers:
+        allOf:
+        - $ref: '#/components/schemas/EventHeaders'
+        - type: object
+          properties:
+            eventType:
+              const: Customer.Customer.KycStatusChanged.v1
+      payload:
+        allOf:
+        - $ref: '#/components/schemas/EventEnvelope'
+        - type: object
+          properties:
+            eventType:
+              const: Customer.Customer.KycStatusChanged.v1
+            producer:
+              const: svc-cus-profile-kyc
+            data:
+              $ref: '#/components/schemas/CustomerKycStatusChangedData'
+      bindings:
+        kafka:
+          key:
+            type: string
+            description: aggregateId (customerId).
+          bindingVersion: 0.5.0
+      x-source-class: com.bank.customer.domain.CustomerKycStatusChangedEvent
     DeadLetter:
       name: DeadLetter
       title: Dead letter for evt.cus.customer

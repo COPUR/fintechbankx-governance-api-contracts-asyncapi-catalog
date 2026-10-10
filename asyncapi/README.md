@@ -13,7 +13,7 @@ record key is `aggregateId`. Naming follows
 | [svc-ln-loan-lifecycle.yaml](svc-ln-loan-lifecycle.yaml) | Loan lifecycle | `evt.ln.loan.v1` | `Lending.Loan.*.v1`: Created, Approved, Rejected, Disbursed, Cancelled, PaymentMade, FullyPaid | Domain events raised; no publisher adapter |
 | [svc-pay-initiation-settlement.yaml](svc-pay-initiation-settlement.yaml) | Payment initiation and settlement | `evt.pay.payment.v1` | nine payment and loan-payment event types (see the spec) | Domain events raised; no publisher adapter |
 | [svc-pay-request-to-pay.yaml](svc-pay-request-to-pay.yaml) | Request to pay | `evt.pay.rtp.v1` | `Payments.PayRequest.*.v1`: Created, Accepted, Rejected | Published to legacy `rtp.pay_requests.v1` without envelope |
-| [svc-cus-profile-kyc.yaml](svc-cus-profile-kyc.yaml) | Customer profile and KYC | `evt.cus.customer.v1` | six customer event types (see the spec) | Published after save via an external `DomainEventPublisher`; no outbox |
+| [svc-cus-profile-kyc.yaml](svc-cus-profile-kyc.yaml) | Customer profile and KYC | `evt.cus.customer.v1` | seven customer event types (see the spec) | Published after save via an external `DomainEventPublisher`; no outbox |
 
 One topic per aggregate (ADR-019, owner decision 2026-10-08): every event of a namespace's aggregate goes to
 `<namespace>.v<N>`, keyed by the aggregate id, so one aggregate instance's events stay in order in one partition.
@@ -96,7 +96,7 @@ directory relative to the repository root (for example `ASYNCAPI_DIR=api/asyncap
 (ADR-019 section 5). The accepted-breaking file then sits next to the spec in that directory.
 
 Accepted breaking changes go in `asyncapi/<service-id>.accepted-breaking.txt`, one finding key per line exactly as
-the check prints it (for example `removed-property evt.pay.rtp.accepted.v1 PayRequestAccepted $.data.creditorName`),
+the check prints it (for example `removed-property evt.pay.rtp.v1 PayRequestAccepted $.data.creditorName`),
 with a `#` comment that links the major-version and dual-publish plan. Event payload schemas and their own
 compatibility checks live in `fintechbankx-governance-api-contracts-schema-registry`, generated from these specs.
 

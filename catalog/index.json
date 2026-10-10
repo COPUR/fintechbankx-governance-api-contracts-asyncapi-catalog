@@ -132,7 +132,7 @@
       "channels": [],
       "providerSpecPath": null,
       "implementationStatus": "no-contract",
-      "implementationNote": "Open finance pillar plans evt.of.payee.verification-completed.v1 (2026-10-08). No contract yet.",
+      "implementationNote": "Open finance pillar plans event type OpenFinance.PayeeVerification.Completed.v1 on evt.of.payee.v1 (2026-10-08). No contract yet.",
       "pendingImplementation": null
     },
     {
