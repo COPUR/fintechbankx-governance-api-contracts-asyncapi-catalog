@@ -47,7 +47,7 @@
         "evt.ln.loan.v1",
         "evt.ln.loan.dlq.v1"
       ],
-      "providerSpecPath": null,
+      "providerSpecPath": "api/asyncapi/svc-ln-loan-lifecycle.yaml",
       "consumes": [
         "evt.pay.payment.v1"
       ]
@@ -70,7 +70,7 @@
       "channels": [
         "evt.pay.payment.v1"
       ],
-      "providerSpecPath": null
+      "providerSpecPath": "api/asyncapi/svc-pay-initiation-settlement.yaml"
     },
     {
       "file": "asyncapi/svc-pay-request-to-pay.yaml",
@@ -90,7 +90,7 @@
       "channels": [
         "evt.pay.rtp.v1"
       ],
-      "providerSpecPath": null
+      "providerSpecPath": "api/asyncapi/svc-pay-request-to-pay.yaml"
     },
     {
       "file": null,
@@ -154,7 +154,7 @@
       "channels": [
         "evt.pay.mandate.v1"
       ],
-      "providerSpecPath": null,
+      "providerSpecPath": "api/asyncapi/svc-pay-recurring-mandates.yaml",
       "implementationStatus": "contract-only",
       "implementationNote": "No publisher on the provider default branch. The service consumes nothing, so it lists no dead-letter topic (consumer-owned DLQs, ADR-019).",
       "pendingImplementation": {
@@ -174,7 +174,7 @@
       "channels": [
         "evt.pay.bulk.v1"
       ],
-      "providerSpecPath": null,
+      "providerSpecPath": "api/asyncapi/svc-pay-bulk-orchestration.yaml",
       "implementationStatus": "contract-only",
       "implementationNote": "No publisher on the provider default branch. The service consumes nothing, so it lists no dead-letter topic (consumer-owned DLQs, ADR-019). Payments.BulkFile.Completed.v1 (on evt.pay.bulk.v1) is declared but not emitted (x-emitted: false in the spec) until accepted items are handed to svc-pay-initiation-settlement.",
       "pendingImplementation": {
