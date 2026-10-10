@@ -1,0 +1,350 @@
+# AsyncAPI contract for svc-of-business-financial-data (consumer side).
+# Status: Proposed. The consent fact payloads are owned by svc-of-consent-authorization;
+# this document records what this service consumes and the DLQ it writes.
+# common/event-envelope.yaml is a verbatim copy of the asyncapi catalog's shared envelope.
+# Validate: npx -y @asyncapi/cli@2.13.0 validate api/asyncapi/svc-of-business-financial-data.yaml
+asyncapi: 3.0.0
+id: urn:fintechbankx:asyncapi:svc-of-business-financial-data
+info:
+  title: svc-of-business-financial-data events
+  version: 1.0.0
+  description: |-
+    Events consumed and produced by svc-of-business-financial-data (repository fintechbankx-openfinance-corporate-data-business-financial).
+
+    Status: Proposed. Owner: Corporate Financial Data Squad, Open Finance Tribe. Own event namespace: `evt.of.corporate`.
+
+    The service publishes no domain events. It consumes the consent aggregate topic `evt.of.consent.v1` of
+    svc-of-consent-authorization into its consent read model (consumer group
+    `cg.svc-of-business-financial-data.consent-projection.v1`). It reads the eventType record header first,
+    handles the Created, Authorized, Revoked and Expired facts and skips every other type without failing or
+    dead-lettering it; a record without the header is routed on the envelope's eventType. A record
+    with neither (no eventType header and no parseable envelope with an eventType) is unroutable: it is not projected and
+    not dead-lettered (nothing shows it is a consent fact this service handles), its offset is committed, it is counted
+    as consent.projection.events{outcome=unroutable} and logged at WARN with topic, partition and offset (never the key
+    or the value). Idempotent on eventId, version-guarded on aggregateVersion (backfill replays may deliver older facts),
+    a consent is usable only when status is AUTHORIZED and expiresAt is in the future. A record that still fails
+    after 3 attempts (exponential back-off), or that violates the contract, is copied unchanged to
+    `evt.of.corporate.dlq.v1` with the DeadLetterHeaders.
+
+    Every consent message uses the standard envelope and record headers of common/event-envelope.yaml (a verbatim
+    copy of the asyncapi catalog's shared file), and dead letters carry its common DeadLetterHeaders. Unknown fields are ignored.
+  tags:
+  - name: consent
+  - name: evt.of.corporate
+  x-service-id: svc-of-business-financial-data
+  x-event-namespace: evt.of.corporate
+  x-owning-squad: Corporate Financial Data Squad
+defaultContentType: application/json
+servers:
+  msk:
+    host: '{bootstrapServers}'
+    protocol: kafka-secure
+    description: Amazon MSK cluster of the FinTechBankX event platform (svc-evt-streaming) on AWS. TLS in transit,
+      SASL_SSL with mechanism AWS_MSK_IAM using the service's IRSA role (ADR-024, platform contract 2026-10-08).
+      Spring profile kafka-msk.
+    variables:
+      bootstrapServers:
+        description: MSK IAM bootstrap brokers (port 9098), injected per environment by the platform.
+    security:
+    - $ref: '#/components/securitySchemes/mskIam'
+  local:
+    host: '{bootstrapServers}'
+    protocol: kafka-secure
+    description: Strimzi cluster in namespace kafka, for local and non-AWS environments only. Mutual TLS with
+      Strimzi-issued client certificates (port 9093). Spring profile kafka-strimzi.
+    variables:
+      bootstrapServers:
+        description: Strimzi TLS bootstrap service, injected per environment.
+    security:
+    - $ref: '#/components/securitySchemes/mtls'
+channels:
+  consent:
+    address: evt.of.consent.v1
+    title: evt.of.consent.v1
+    description: >-
+      Consent aggregate topic of svc-of-consent-authorization (ADR-019: one topic per aggregate). Every consent
+      event type is published here, keyed by consentId, with the type in the eventType record header. This
+      service handles OpenFinance.Consent.Created.v1, .Authorized.v1, .Revoked.v1 and .Expired.v1 and skips any
+      other type (offset committed, no failure, no dead letter).
+    messages:
+      ConsentCreated:
+        $ref: '#/components/messages/ConsentCreated'
+      ConsentAuthorized:
+        $ref: '#/components/messages/ConsentAuthorized'
+      ConsentRevoked:
+        $ref: '#/components/messages/ConsentRevoked'
+      ConsentExpired:
+        $ref: '#/components/messages/ConsentExpired'
+    bindings:
+      kafka:
+        topic: evt.of.consent.v1
+        bindingVersion: 0.5.0
+  deadLetter:
+    address: evt.of.corporate.dlq.v1
+    title: evt.of.corporate.dlq.v1
+    description: >-
+      Dead-letter topic of the evt.of.corporate namespace. svc-of-business-financial-data writes consent facts it
+      could not apply here; the Corporate Financial Data Squad redrives them through the same idempotent handler.
+    messages:
+      DeadLetter:
+        $ref: '#/components/messages/DeadLetter'
+    bindings:
+      kafka:
+        topic: evt.of.corporate.dlq.v1
+        partitions: 3
+        replicas: 3
+        topicConfiguration:
+          cleanup.policy:
+          - delete
+          retention.ms: 1209600000
+          max.message.bytes: 1048576
+        bindingVersion: 0.5.0
+operations:
+  receiveConsentFacts:
+    action: receive
+    title: Project the consent facts
+    summary: >-
+      Route on the eventType header (the envelope's eventType when the header is missing); upsert the consent
+      read model when aggregateVersion is newer than the stored one. Other event types are skipped
+      (outcome skipped); records with no eventType at all are unroutable (outcome unroutable, WARN log); both have their
+      offset committed and are never dead-lettered.
+    channel:
+      $ref: '#/channels/consent'
+    messages:
+    - $ref: '#/channels/consent/messages/ConsentCreated'
+    - $ref: '#/channels/consent/messages/ConsentAuthorized'
+    - $ref: '#/channels/consent/messages/ConsentRevoked'
+    - $ref: '#/channels/consent/messages/ConsentExpired'
+    bindings:
+      kafka:
+        groupId:
+          type: string
+          const: cg.svc-of-business-financial-data.consent-projection.v1
+        bindingVersion: 0.5.0
+  sendDeadLetter:
+    action: send
+    title: Dead-letter a consent fact
+    summary: Copy a consent fact that failed 3 attempts or violates the contract to the namespace DLQ.
+    channel:
+      $ref: '#/channels/deadLetter'
+    messages:
+    - $ref: '#/channels/deadLetter/messages/DeadLetter'
+components:
+  schemas:
+    EventEnvelope:
+      $ref: ./common/event-envelope.yaml#/EventEnvelope
+    EventHeaders:
+      $ref: ./common/event-envelope.yaml#/EventHeaders
+    DeadLetterHeaders:
+      $ref: ./common/event-envelope.yaml#/DeadLetterHeaders
+    ConsentFactData:
+      type: object
+      description: Consent fact payload. Ids and facts only; no names, no raw account numbers, no revocation text.
+      required:
+      - consentId
+      - participantId
+      - customerId
+      - scopes
+      - accountIds
+      - purpose
+      - status
+      - expiresAt
+      - createdAt
+      properties:
+        consentId:
+          type: string
+          minLength: 1
+        participantId:
+          type: string
+          minLength: 1
+          description: TPP id; becomes the consent's tppId and must match the azp (or client_id) claim of the access token.
+        customerId:
+          type: string
+          minLength: 1
+          description: Internal customer id; this service uses it as the corporate customer id and requires the access token's customer_id claim to match.
+        scopes:
+          type: array
+          items:
+            type: string
+          description: Sorted, for example ReadAccounts, ReadBalances, ReadTransactions.
+        accountIds:
+          type: array
+          items:
+            type: string
+          description: Internal account ids; may be empty.
+        purpose:
+          type: string
+        status:
+          type: string
+          enum:
+          - PENDING
+          - AUTHORIZED
+          - REVOKED
+          - EXPIRED
+        expiresAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        authorizedAt:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        revokedAt:
+          type:
+          - string
+          - 'null'
+          format: date-time
+  messages:
+    ConsentCreated:
+      name: ConsentCreated
+      title: OpenFinance.Consent.Created.v1
+      summary: A TPP requested a consent (status PENDING).
+      contentType: application/json
+      headers:
+        allOf:
+        - $ref: '#/components/schemas/EventHeaders'
+        - type: object
+          properties:
+            eventType:
+              const: OpenFinance.Consent.Created.v1
+      payload:
+        allOf:
+        - $ref: '#/components/schemas/EventEnvelope'
+        - type: object
+          properties:
+            eventType:
+              const: OpenFinance.Consent.Created.v1
+            producer:
+              const: svc-of-consent-authorization
+            data:
+              $ref: '#/components/schemas/ConsentFactData'
+      bindings:
+        kafka:
+          key:
+            type: string
+            description: aggregateId (consentId).
+          bindingVersion: 0.5.0
+    ConsentAuthorized:
+      name: ConsentAuthorized
+      title: OpenFinance.Consent.Authorized.v1
+      summary: The customer authorized the consent (status AUTHORIZED).
+      contentType: application/json
+      headers:
+        allOf:
+        - $ref: '#/components/schemas/EventHeaders'
+        - type: object
+          properties:
+            eventType:
+              const: OpenFinance.Consent.Authorized.v1
+      payload:
+        allOf:
+        - $ref: '#/components/schemas/EventEnvelope'
+        - type: object
+          properties:
+            eventType:
+              const: OpenFinance.Consent.Authorized.v1
+            producer:
+              const: svc-of-consent-authorization
+            data:
+              $ref: '#/components/schemas/ConsentFactData'
+      bindings:
+        kafka:
+          key:
+            type: string
+            description: aggregateId (consentId).
+          bindingVersion: 0.5.0
+    ConsentRevoked:
+      name: ConsentRevoked
+      title: OpenFinance.Consent.Revoked.v1
+      summary: The consent was revoked (status REVOKED).
+      contentType: application/json
+      headers:
+        allOf:
+        - $ref: '#/components/schemas/EventHeaders'
+        - type: object
+          properties:
+            eventType:
+              const: OpenFinance.Consent.Revoked.v1
+      payload:
+        allOf:
+        - $ref: '#/components/schemas/EventEnvelope'
+        - type: object
+          properties:
+            eventType:
+              const: OpenFinance.Consent.Revoked.v1
+            producer:
+              const: svc-of-consent-authorization
+            data:
+              $ref: '#/components/schemas/ConsentFactData'
+      bindings:
+        kafka:
+          key:
+            type: string
+            description: aggregateId (consentId).
+          bindingVersion: 0.5.0
+    ConsentExpired:
+      name: ConsentExpired
+      title: OpenFinance.Consent.Expired.v1
+      summary: The consent reached expiresAt (status EXPIRED).
+      contentType: application/json
+      headers:
+        allOf:
+        - $ref: '#/components/schemas/EventHeaders'
+        - type: object
+          properties:
+            eventType:
+              const: OpenFinance.Consent.Expired.v1
+      payload:
+        allOf:
+        - $ref: '#/components/schemas/EventEnvelope'
+        - type: object
+          properties:
+            eventType:
+              const: OpenFinance.Consent.Expired.v1
+            producer:
+              const: svc-of-consent-authorization
+            data:
+              $ref: '#/components/schemas/ConsentFactData'
+      bindings:
+        kafka:
+          key:
+            type: string
+            description: aggregateId (consentId).
+          bindingVersion: 0.5.0
+    DeadLetter:
+      name: DeadLetter
+      title: Dead letter for evt.of.corporate
+      summary: A consent fact this service could not apply; key and value are the original record, unchanged.
+      description: >-
+        Headers are the common DeadLetterHeaders. dlq-consumer-group is always
+        cg.svc-of-business-financial-data.consent-projection.v1; dlq-attempts is 3 after exhausted retries and 1 for a
+        record that cannot be parsed or violates this contract; dlq-error-class is the exception class only, never its
+        message. eventType, eventId and correlationId are copied from the original record headers, or read from the
+        envelope when the producer did not set them; a record that has neither (for example a malformed value without
+        an eventId header) is dead-lettered without that header. The payload is the original value: a consent fact
+        envelope, or, for a contract violation, possibly malformed JSON. Records with no eventType at all are
+        unroutable and never reach this topic.
+      contentType: application/json
+      headers:
+        $ref: '#/components/schemas/DeadLetterHeaders'
+      payload:
+        $ref: '#/components/schemas/EventEnvelope'
+      bindings:
+        kafka:
+          key:
+            type: string
+            description: Original record key (consentId).
+          bindingVersion: 0.5.0
+  securitySchemes:
+    mskIam:
+      type: userPassword
+      description: SASL_SSL with SASL mechanism AWS_MSK_IAM. There is no user or password; the client signs with the
+        AWS credentials of its IRSA role, and a topic-scoped IAM policy (terraform module msk-client-access) grants
+        produce or consume rights. AsyncAPI has no IAM scheme type, so userPassword stands for the SASL family.
+      x-sasl-mechanism: AWS_MSK_IAM
+    mtls:
+      type: X509
+      description: Mutual TLS with Strimzi-issued client certificates (local and non-AWS clusters only).

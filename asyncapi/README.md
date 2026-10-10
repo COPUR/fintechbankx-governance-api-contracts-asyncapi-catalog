@@ -68,10 +68,13 @@ Status today (Proposed):
 | `svc-cmp-evidence` | `evt.cmp.compliance` | `no-contract` | expected |
 | `svc-of-consent-authorization` | `evt.of.consent` | `contract-only` | outbox and relay on unmerged provider branch `claude/openfinance-deployable-ra36dq` |
 | `svc-of-payee-verification` | `evt.of.payee` | `contract-only` | outbox and relay on unmerged provider branch `claude/openfinance-deployable-ra36dq` |
+| `svc-of-personal-financial-data` | `evt.of.account` | `contract-only` | consumer only (`evt.of.consent.v1`, DLQ `evt.of.account.dlq.v1`); spec on unmerged provider branch `claude/openfinance-deployable-ra36dq` |
+| `svc-of-banking-metadata` | `evt.of.metadata` | `contract-only` | consumer only (`evt.of.consent.v1`, DLQ `evt.of.metadata.dlq.v1`); spec on unmerged provider branch `claude/openfinance-deployable-ra36dq` |
+| `svc-of-business-financial-data` | `evt.of.corporate` | `contract-only` | consumer only (`evt.of.consent.v1`, DLQ `evt.of.corporate.dlq.v1`); spec on unmerged provider branch `claude/openfinance-deployable-ra36dq` |
 | `svc-pay-recurring-mandates` | `evt.pay.mandate` | `no-contract` | expected |
 | `svc-pay-bulk-orchestration` | `evt.pay.bulk` | `no-contract` | expected |
 
-Only the two open-finance publishers carry their own AsyncAPI file so far (`providerSpecPath` set); every other `providerSpecPath` is `null`.
+No provider default branch carries its own AsyncAPI file yet, so every `providerSpecPath` is `null`. The consent and payee-verification publishers and the personal-financial-data, banking-metadata and business-financial-data consumers have `api/asyncapi/<service-id>.yaml` on their unmerged branches; each index entry's `pendingImplementation.note` names the provider commit its catalog copy mirrors. Set the path when they merge.
 
 ## Checks
 
