@@ -125,6 +125,7 @@
       "pendingImplementation": {
         "branch": "claude/openfinance-deployable-ra36dq",
         "repo": "COPUR/fintechbankx-openfinance-consent-auth-service",
+        "pullRequest": "COPUR/fintechbankx-openfinance-consent-auth-service#13",
         "status": "outbox",
         "note": "Transactional outbox, envelope mapping, relay and the provider copy api/asyncapi/svc-of-consent-authorization.yaml on an unmerged branch (catalog copy mirrors commit f6652ee); status changes to outbox when the provider merges it."
       }
@@ -145,6 +146,7 @@
       "pendingImplementation": {
         "branch": "claude/openfinance-deployable-ra36dq",
         "repo": "COPUR/fintechbankx-openfinance-payee-metadata-payee-verification",
+        "pullRequest": "COPUR/fintechbankx-openfinance-payee-metadata-payee-verification#13",
         "status": "outbox",
         "note": "PostgreSQL decision record, transactional outbox, relay and the provider copy api/asyncapi/svc-of-payee-verification.yaml on an unmerged branch (catalog copy mirrors commit c621293); status changes to outbox when the provider merges it."
       }
@@ -161,6 +163,7 @@
       "pendingImplementation": {
         "branch": "claude/openfinance-deployable-ra36dq",
         "repo": "COPUR/fintechbankx-openfinance-retail-data-personal-financial",
+        "pullRequest": "COPUR/fintechbankx-openfinance-retail-data-personal-financial#14",
         "status": "contract-only",
         "note": "Consent projection consumer and the provider copy api/asyncapi/svc-of-personal-financial-data.yaml on an unmerged branch (catalog copy mirrors commit 6357a49); the service still publishes nothing, so the status stays contract-only after it merges."
       },
@@ -184,6 +187,7 @@
       "pendingImplementation": {
         "branch": "claude/openfinance-deployable-ra36dq",
         "repo": "COPUR/fintechbankx-openfinance-payee-metadata-banking-metadata",
+        "pullRequest": "COPUR/fintechbankx-openfinance-payee-metadata-banking-metadata#14",
         "status": "contract-only",
         "note": "Consent projection consumer and the provider copy api/asyncapi/svc-of-banking-metadata.yaml on an unmerged branch (catalog copy mirrors commit 23b3921); the service still publishes nothing, so the status stays contract-only after it merges."
       },
@@ -207,6 +211,7 @@
       "pendingImplementation": {
         "branch": "claude/openfinance-deployable-ra36dq",
         "repo": "COPUR/fintechbankx-openfinance-corporate-data-business-financial",
+        "pullRequest": "COPUR/fintechbankx-openfinance-corporate-data-business-financial#14",
         "status": "contract-only",
         "note": "Consent projection consumer and the provider copy api/asyncapi/svc-of-business-financial-data.yaml on an unmerged branch (catalog copy mirrors commit 25f0ead); the service still publishes nothing, so the status stays contract-only after it merges."
       },

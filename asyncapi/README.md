@@ -62,7 +62,7 @@ plus "expected" entries (`file: null`) for services that will publish but have n
 | `channels` | Full topic addresses declared by the spec, dead-letter topic included |
 | `providerSpecPath` | Path of the AsyncAPI file in the provider repository (for example `api/asyncapi/<service-id>.yaml`), set as soon as the provider carries the file, on its default branch or on the branch named in `pendingImplementation`; `null` only while the provider has none |
 | `implementationStatus` | `contract-only`, `publishes-legacy`, `outbox` or `no-contract` (see `statusValues` in the file) |
-| `pendingImplementation` | Unmerged provider branch the catalog copy comes from, if any; its `note` names the mirrored provider commit |
+| `pendingImplementation` | Unmerged provider branch the catalog copy comes from, if any; `pullRequest` names the provider PR it waits on and `note` the mirrored provider commit |
 
 Status today (Proposed):
 
@@ -82,7 +82,7 @@ Status today (Proposed):
 | `svc-pay-recurring-mandates` | `evt.pay.mandate` | `no-contract` | expected |
 | `svc-pay-bulk-orchestration` | `evt.pay.bulk` | `no-contract` | expected |
 
-The consent and payee-verification publishers and the personal-financial-data, banking-metadata and business-financial-data consumers carry `api/asyncapi/<service-id>.yaml` on the provider branch named in `pendingImplementation`, so their `providerSpecPath` is set; each entry's `pendingImplementation.note` names the provider commit its catalog copy mirrors. The other entries stay `null` until their provider carries its own spec.
+The consent and payee-verification publishers and the personal-financial-data, banking-metadata and business-financial-data consumers carry `api/asyncapi/<service-id>.yaml` on the provider branch named in `pendingImplementation`, so their `providerSpecPath` is set; each entry's `pendingImplementation` names the provider pull request (`pullRequest`) and its `note` names the provider commit its catalog copy mirrors. A catalog PR that points `providerSpecPath` at an unmerged provider branch merges only after that provider PR, so on the catalog's default branch the path always resolves on the provider's default branch. The other entries stay `null` until their provider carries its own spec.
 
 ## Checks
 
