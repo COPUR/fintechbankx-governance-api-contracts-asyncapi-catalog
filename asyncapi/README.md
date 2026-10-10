@@ -2,7 +2,7 @@
 
 Status: **Proposed**. Each provider repository owns its contract; this catalog mirrors it.
 
-One AsyncAPI 3.0.0 document per publishing service, named `asyncapi/<service-id>.yaml`. Every message uses the
+One AsyncAPI 3.0.0 document per service that publishes or consumes, named `asyncapi/<service-id>.yaml`. Every message uses the
 standard envelope in [`common/event-envelope.yaml`](common/event-envelope.yaml): `eventId`, `eventType`,
 `occurredAt`, `aggregateId`, `aggregateVersion`, `correlationId`, `causationId`, `producer`, `data`. The Kafka
 record key is `aggregateId`. Naming follows
@@ -36,14 +36,22 @@ A spec lists its DLQ as a `send` channel in its own namespace; the catalog check
 rejects a send channel outside it. Topics are provisioned by `scripts/kafka/create-topics.sh` in
 `fintechbankx-platform-event-streaming-kafka`.
 
-No other fintechbankx service publishes events in code today (consent, account data, payee, metadata, open data,
-risk, compliance, bulk and recurring payments). Risk, compliance, consent, recurring mandates and bulk payments are
-expected publishers and are listed in the catalog index without a file. Add a contract here, and update the index
+No other fintechbankx service publishes events in code today (account data, metadata, open data, risk, compliance,
+bulk and recurring payments). Risk, compliance, recurring mandates and bulk payments are expected publishers and
+are listed in the catalog index without a file. Add a contract here, and update the index
 entry, when the provider adds one.
+
+Consumer-only contracts (no publish operation; the spec lists the consumed topic and the service's own DLQ):
+
+| Contract | Service | Consumes | Consumer group | Own DLQ |
+|---|---|---|---|---|
+| [svc-of-personal-financial-data.yaml](svc-of-personal-financial-data.yaml) | Personal financial data | `evt.of.consent.v1` | `cg.svc-of-personal-financial-data.consent-projection.v1` | `evt.of.account.dlq.v1` |
+| [svc-of-banking-metadata.yaml](svc-of-banking-metadata.yaml) | Banking metadata | `evt.of.consent.v1` | `cg.svc-of-banking-metadata.consent-projection.v1` | `evt.of.metadata.dlq.v1` |
+| [svc-of-business-financial-data.yaml](svc-of-business-financial-data.yaml) | Business financial data | `evt.of.consent.v1` | `cg.svc-of-business-financial-data.consent-projection.v1` | `evt.of.corporate.dlq.v1` |
 
 ## Catalog index
 
-[`catalog/index.json`](../catalog/index.json) lists every publishing service, one entry per `asyncapi/<service-id>.yaml`
+[`catalog/index.json`](../catalog/index.json) lists every service that publishes or consumes, one entry per `asyncapi/<service-id>.yaml`
 plus "expected" entries (`file: null`) for services that will publish but have no contract yet. Fields:
 
 | Field | Meaning |
@@ -54,7 +62,7 @@ plus "expected" entries (`file: null`) for services that will publish but have n
 | `channels` | Full topic addresses declared by the spec, dead-letter topic included |
 | `providerSpecPath` | Path of the AsyncAPI file in the provider repository; `null` while the provider has none |
 | `implementationStatus` | `contract-only`, `publishes-legacy`, `outbox` or `no-contract` (see `statusValues` in the file) |
-| `pendingImplementation` | Unmerged provider branch that changes the status, if any |
+| `pendingImplementation` | Unmerged provider branch the catalog copy comes from, if any; its `note` names the mirrored provider commit |
 
 Status today (Proposed):
 
