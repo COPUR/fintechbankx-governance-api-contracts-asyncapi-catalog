@@ -119,7 +119,7 @@
       "channels": [
         "evt.of.consent.v1"
       ],
-      "providerSpecPath": null,
+      "providerSpecPath": "api/asyncapi/svc-of-consent-authorization.yaml",
       "implementationStatus": "contract-only",
       "implementationNote": "Consent facts (Created, Authorized, Revoked, Expired) on the one aggregate topic evt.of.consent.v1. Consumed by svc-of-personal-financial-data, svc-of-business-financial-data and svc-of-banking-metadata (consent projections; consumer specs are mirrored here and name this topic). The provider default branch publishes nothing yet.",
       "pendingImplementation": {
@@ -139,7 +139,7 @@
       "channels": [
         "evt.of.payee.v1"
       ],
-      "providerSpecPath": null,
+      "providerSpecPath": "api/asyncapi/svc-of-payee-verification.yaml",
       "implementationStatus": "contract-only",
       "implementationNote": "The provider default branch matches against a seeded in-memory directory and publishes nothing.",
       "pendingImplementation": {
@@ -170,7 +170,7 @@
       "consumes": [
         "evt.of.consent.v1"
       ],
-      "providerSpecPath": null
+      "providerSpecPath": "api/asyncapi/svc-of-personal-financial-data.yaml"
     },
     {
       "file": "asyncapi/svc-of-banking-metadata.yaml",
@@ -193,7 +193,7 @@
       "consumes": [
         "evt.of.consent.v1"
       ],
-      "providerSpecPath": null
+      "providerSpecPath": "api/asyncapi/svc-of-banking-metadata.yaml"
     },
     {
       "file": "asyncapi/svc-of-business-financial-data.yaml",
@@ -216,7 +216,7 @@
       "consumes": [
         "evt.of.consent.v1"
       ],
-      "providerSpecPath": null
+      "providerSpecPath": "api/asyncapi/svc-of-business-financial-data.yaml"
     },
     {
       "file": null,

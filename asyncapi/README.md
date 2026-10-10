@@ -60,7 +60,7 @@ plus "expected" entries (`file: null`) for services that will publish but have n
 | `serviceId`, `namespace` | Service id and event namespace from `repository-bootstrap-manifest.csv` |
 | `ownerRepo`, `canonicalRepo` | Actual GitHub repository (`COPUR/...`) and canonical name used in governance docs |
 | `channels` | Full topic addresses declared by the spec, dead-letter topic included |
-| `providerSpecPath` | Path of the AsyncAPI file in the provider repository; `null` while the provider has none |
+| `providerSpecPath` | Path of the AsyncAPI file in the provider repository (for example `api/asyncapi/<service-id>.yaml`), set as soon as the provider carries the file, on its default branch or on the branch named in `pendingImplementation`; `null` only while the provider has none |
 | `implementationStatus` | `contract-only`, `publishes-legacy`, `outbox` or `no-contract` (see `statusValues` in the file) |
 | `pendingImplementation` | Unmerged provider branch the catalog copy comes from, if any; its `note` names the mirrored provider commit |
 
@@ -82,7 +82,7 @@ Status today (Proposed):
 | `svc-pay-recurring-mandates` | `evt.pay.mandate` | `no-contract` | expected |
 | `svc-pay-bulk-orchestration` | `evt.pay.bulk` | `no-contract` | expected |
 
-No provider default branch carries its own AsyncAPI file yet, so every `providerSpecPath` is `null`. The consent and payee-verification publishers and the personal-financial-data, banking-metadata and business-financial-data consumers have `api/asyncapi/<service-id>.yaml` on their unmerged branches; each index entry's `pendingImplementation.note` names the provider commit its catalog copy mirrors. Set the path when they merge.
+The consent and payee-verification publishers and the personal-financial-data, banking-metadata and business-financial-data consumers carry `api/asyncapi/<service-id>.yaml` on the provider branch named in `pendingImplementation`, so their `providerSpecPath` is set; each entry's `pendingImplementation.note` names the provider commit its catalog copy mirrors. The other entries stay `null` until their provider carries its own spec.
 
 ## Checks
 
