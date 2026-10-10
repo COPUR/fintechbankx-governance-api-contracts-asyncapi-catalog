@@ -304,11 +304,12 @@ components:
         Headers are the common DeadLetterHeaders. dlq-consumer-group is always
         cg.svc-of-personal-financial-data.consent-projection.v1; dlq-attempts is 3 after exhausted retries and 1 for a
         record that cannot be parsed or violates this contract; dlq-error-class is the exception class only, never its
-        message. eventType, eventId and correlationId are copied from the original record headers, or read from the
-        envelope when the producer did not set them; a record that has neither (for example a malformed value without
-        an eventId header) is dead-lettered without that header. The payload is the original value: a consent fact
-        envelope, or, for a contract violation, possibly malformed JSON. Records without the eventType header are
-        unroutable and never reach this topic.
+        message. eventType is the original record's eventType header: under ADR-019 a record without it is unroutable,
+        is never dead-lettered and never reaches this topic, so every dead letter carries it. eventId and correlationId
+        are copied from the original record headers, or read from the envelope when the producer did not set them; a
+        record that has neither (for example a malformed value without an eventId header) is dead-lettered without
+        that header. The payload is the original value: a consent fact envelope, or, for a contract violation, possibly
+        malformed JSON.
       contentType: application/json
       headers:
         $ref: '#/components/schemas/DeadLetterHeaders'
