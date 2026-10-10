@@ -62,10 +62,10 @@ Status today (Proposed):
 |---|---|---|---|
 | `svc-ln-loan-lifecycle` | `evt.ln.loan` | `contract-only` | outbox and relay on unmerged provider branch `claude/project-thread-ty79y4` |
 | `svc-pay-initiation-settlement` | `evt.pay.payment` | `contract-only` | outbox and relay on unmerged provider branch `claude/project-thread-ty79y4` |
-| `svc-cus-profile-kyc` | `evt.cus.customer` | `contract-only` | outbox and relay on unmerged provider branch `claude/customer-risk-compliance-deployable-ygi0zo` (PR #13) |
+| `svc-cus-profile-kyc` | `evt.cus.customer` | `contract-only` | outbox and relay on unmerged provider branch `claude/customer-risk-compliance-deployable-ygi0zo` (provider PR #13) |
 | `svc-pay-request-to-pay` | `evt.pay.rtp` | `publishes-legacy` | legacy topic `rtp.pay_requests.v1`, no envelope |
-| `svc-rsk-decisioning` | `evt.rsk.risk` | `contract-only` | outbox and relay on unmerged provider branch `claude/customer-risk-compliance-deployable-ygi0zo` (PR #13) |
-| `svc-cmp-evidence` | `evt.cmp.compliance` | `contract-only` | outbox and relay on unmerged provider branch `claude/customer-risk-compliance-deployable-ygi0zo` (PR #13) |
+| `svc-rsk-decisioning` | `evt.rsk.risk` | `contract-only` | outbox and relay on unmerged provider branch `claude/customer-risk-compliance-deployable-ygi0zo` (provider PR #13) |
+| `svc-cmp-evidence` | `evt.cmp.compliance` | `contract-only` | outbox and relay on unmerged provider branch `claude/customer-risk-compliance-deployable-ygi0zo` (provider PR #13) |
 | `svc-of-consent-authorization` | `evt.of.consent` | `no-contract` | expected |
 | `svc-pay-recurring-mandates` | `evt.pay.mandate` | `no-contract` | expected |
 | `svc-pay-bulk-orchestration` | `evt.pay.bulk` | `no-contract` | expected |

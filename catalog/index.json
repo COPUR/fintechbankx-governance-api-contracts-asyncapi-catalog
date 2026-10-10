@@ -21,12 +21,12 @@
         "branch": "claude/customer-risk-compliance-deployable-ygi0zo",
         "repo": "COPUR/fintechbankx-customer-profile-kyc-core",
         "status": "outbox",
-        "note": "Transactional outbox, envelope factory and relay publishing the Customer.Customer.* events on evt.cus.customer.v1, with the provider spec api/asyncapi/svc-cus-profile-kyc.yaml, on an unmerged branch (PR #13); status changes to outbox when the provider merges it."
+        "note": "Transactional outbox, envelope factory and relay publishing the Customer.Customer.* events on evt.cus.customer.v1, with the provider spec api/asyncapi/svc-cus-profile-kyc.yaml, on an unmerged branch (provider PR #13); status changes to outbox when the provider merges it. The catalog copy mirrors provider commit 3e8afcd (the last commit changing the spec on the provider branch)."
       },
       "channels": [
         "evt.cus.customer.v1"
       ],
-      "providerSpecPath": null
+      "providerSpecPath": "api/asyncapi/svc-cus-profile-kyc.yaml"
     },
     {
       "file": "asyncapi/svc-ln-loan-lifecycle.yaml",
@@ -96,12 +96,12 @@
         "branch": "claude/customer-risk-compliance-deployable-ygi0zo",
         "repo": "COPUR/fintechbankx-riskcompliance-risk-decisioning-core",
         "status": "outbox",
-        "note": "Transactional outbox, envelope factory and relay publishing Risk.RiskAssessment.Assessed.v1 on evt.rsk.risk.v1, with the provider-owned contract api/asyncapi/svc-rsk-decisioning.yaml, on an unmerged branch (PR #13); status changes to outbox and providerSpecPath is set when the provider merges it."
+        "note": "Transactional outbox, envelope factory and relay publishing Risk.RiskAssessment.Assessed.v1 on evt.rsk.risk.v1, with the provider-owned contract api/asyncapi/svc-rsk-decisioning.yaml, on an unmerged branch (provider PR #13); status changes to outbox when the provider merges it. The catalog copy mirrors provider commit ea0c09e (the last commit changing the spec on the provider branch)."
       },
       "channels": [
         "evt.rsk.risk.v1"
       ],
-      "providerSpecPath": null
+      "providerSpecPath": "api/asyncapi/svc-rsk-decisioning.yaml"
     },
     {
       "file": "asyncapi/svc-cmp-evidence.yaml",
@@ -116,12 +116,12 @@
         "branch": "claude/customer-risk-compliance-deployable-ygi0zo",
         "repo": "COPUR/fintechbankx-riskcompliance-compliance-evidence-core",
         "status": "outbox",
-        "note": "Transactional outbox, envelope factory and relay (Compliance.ComplianceScreening.Screened.v1 on evt.cmp.compliance.v1) and the provider spec api/asyncapi/svc-cmp-evidence.yaml on an unmerged branch (PR #13); status changes to outbox when the provider merges it."
+        "note": "Transactional outbox, envelope factory and relay (Compliance.ComplianceScreening.Screened.v1 on evt.cmp.compliance.v1) and the provider spec api/asyncapi/svc-cmp-evidence.yaml on an unmerged branch (provider PR #13); status changes to outbox when the provider merges it. The catalog copy mirrors provider commit 049aae0 (the last commit changing the spec on the provider branch)."
       },
       "channels": [
         "evt.cmp.compliance.v1"
       ],
-      "providerSpecPath": null
+      "providerSpecPath": "api/asyncapi/svc-cmp-evidence.yaml"
     },
     {
       "file": null,
