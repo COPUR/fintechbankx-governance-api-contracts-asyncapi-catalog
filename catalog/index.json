@@ -162,7 +162,7 @@
         "branch": "claude/openfinance-deployable-ra36dq",
         "repo": "COPUR/fintechbankx-openfinance-retail-data-personal-financial",
         "status": "contract-only",
-        "note": "Consent projection consumer and the provider copy api/asyncapi/svc-of-personal-financial-data.yaml on an unmerged branch (catalog copy mirrors commit 449409e); the service still publishes nothing, so the status stays contract-only after it merges."
+        "note": "Consent projection consumer and the provider copy api/asyncapi/svc-of-personal-financial-data.yaml on an unmerged branch (catalog copy mirrors commit 6357a49); the service still publishes nothing, so the status stays contract-only after it merges."
       },
       "channels": [
         "evt.of.account.dlq.v1"
@@ -185,7 +185,7 @@
         "branch": "claude/openfinance-deployable-ra36dq",
         "repo": "COPUR/fintechbankx-openfinance-payee-metadata-banking-metadata",
         "status": "contract-only",
-        "note": "Consent projection consumer and the provider copy api/asyncapi/svc-of-banking-metadata.yaml on an unmerged branch (catalog copy mirrors commit 62eaaa5); the service still publishes nothing, so the status stays contract-only after it merges."
+        "note": "Consent projection consumer and the provider copy api/asyncapi/svc-of-banking-metadata.yaml on an unmerged branch (catalog copy mirrors commit 23b3921); the service still publishes nothing, so the status stays contract-only after it merges."
       },
       "channels": [
         "evt.of.metadata.dlq.v1"
@@ -208,7 +208,7 @@
         "branch": "claude/openfinance-deployable-ra36dq",
         "repo": "COPUR/fintechbankx-openfinance-corporate-data-business-financial",
         "status": "contract-only",
-        "note": "Consent projection consumer and the provider copy api/asyncapi/svc-of-business-financial-data.yaml on an unmerged branch (catalog copy mirrors commit 5f2e763); the service still publishes nothing, so the status stays contract-only after it merges."
+        "note": "Consent projection consumer and the provider copy api/asyncapi/svc-of-business-financial-data.yaml on an unmerged branch (catalog copy mirrors commit 25f0ead); the service still publishes nothing, so the status stays contract-only after it merges."
       },
       "channels": [
         "evt.of.corporate.dlq.v1"

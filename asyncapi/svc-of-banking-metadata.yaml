@@ -15,11 +15,11 @@ info:
 
     The service publishes no domain events. It consumes the consent aggregate topic `evt.of.consent.v1` of
     svc-of-consent-authorization (ADR-019) into a local consent read model (MongoDB collection metadata_consents)
-    with consumer group `cg.svc-of-banking-metadata.consent-projection.v1`. It reads the eventType record header
-    first, projects the Created, Authorized, Revoked and Expired facts and skips every other type without failing
-    or dead-lettering it; a record without the header is routed on the envelope's eventType. A record with
-    neither (no eventType header and no parseable envelope with an eventType) is unroutable: it is not projected and
-    not dead-lettered (nothing shows it is a consent fact this service handles), its offset is committed, it is counted
+    with consumer group `cg.svc-of-banking-metadata.consent-projection.v1`. It routes on the eventType record header
+    only, projects the Created, Authorized, Revoked and Expired facts and skips every other type without failing
+    or dead-lettering it. A record without the eventType header (or with a blank one) is unroutable whatever its
+    value, even a valid envelope (ADR-019: no envelope fallback): it is not projected and
+    not dead-lettered, its offset is committed, it is counted
     as consent.projection.events{outcome=UNROUTABLE} and logged at WARN with topic, partition and offset (never the key
     or the value). Processing is idempotent on eventId and guarded by aggregateVersion (an event whose
     aggregateVersion is not greater than the stored one is ignored), so a replayed older fact cannot undo a newer one. A consent is usable only while its status
@@ -107,10 +107,11 @@ operations:
     action: receive
     title: Project the consent facts
     summary: >-
-      Route on the eventType header (the envelope's eventType when the header is missing) and upsert the consent
+      Route on the eventType header only and upsert the consent
       read model if the fact is newer than the stored version: Created (PENDING), Authorized (usable for metadata
       reads until expiresAt), Revoked (refused from the next request on), Expired. Other event types are skipped
-      (outcome SKIPPED); records with no eventType at all are unroutable (outcome UNROUTABLE, WARN log); both have
+      (outcome SKIPPED); records without the eventType header are unroutable whatever their value (outcome
+      UNROUTABLE, WARN log); both have
       their offset committed and are never dead-lettered.
     channel:
       $ref: '#/channels/consent'
@@ -328,7 +329,7 @@ components:
         that cannot be parsed or violates this contract; dlq-error-class is the exception class only, never its
         message. The original record headers (eventType, eventId, correlationId) are kept, so a record from a producer
         that omitted eventId has none here either. The payload is the original value: a consent fact envelope, or, for
-        a contract violation, possibly malformed JSON. Records with no eventType at all are unroutable and never reach
+        a contract violation, possibly malformed JSON. Records without the eventType header are unroutable and never reach
         this topic.
       contentType: application/json
       headers:
