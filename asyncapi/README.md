@@ -10,9 +10,11 @@ record key is `aggregateId`. Naming follows
 
 | Contract | Service | Topic (one per aggregate) | Event types (`eventType` header) | Implementation today |
 |---|---|---|---|---|
-| [svc-ln-loan-lifecycle.yaml](svc-ln-loan-lifecycle.yaml) | Loan lifecycle | `evt.ln.loan.v1` | `Lending.Loan.*.v1`: Created, Approved, Rejected, Disbursed, Cancelled, PaymentMade, FullyPaid | Domain events raised; no publisher adapter |
+| [svc-ln-loan-lifecycle.yaml](svc-ln-loan-lifecycle.yaml) | Loan lifecycle | `evt.ln.loan.v1`, DLQ `evt.ln.loan.dlq.v1` | `Lending.Loan.*.v1` event types (see the spec); consumes `evt.pay.payment.v1` | Domain events raised; no publisher adapter |
 | [svc-pay-initiation-settlement.yaml](svc-pay-initiation-settlement.yaml) | Payment initiation and settlement | `evt.pay.payment.v1` | nine payment and loan-payment event types (see the spec) | Domain events raised; no publisher adapter |
 | [svc-pay-request-to-pay.yaml](svc-pay-request-to-pay.yaml) | Request to pay | `evt.pay.rtp.v1` | `Payments.PayRequest.*.v1`: Created, Accepted, Rejected | Published to legacy `rtp.pay_requests.v1` without envelope |
+| [svc-pay-recurring-mandates.yaml](svc-pay-recurring-mandates.yaml) | Recurring payment mandates | `evt.pay.mandate.v1` | mandate event types (see the spec) | No publisher on default branch |
+| [svc-pay-bulk-orchestration.yaml](svc-pay-bulk-orchestration.yaml) | Bulk payment files | `evt.pay.bulk.v1` | bulk file event types (see the spec) | No publisher on default branch |
 | [svc-cus-profile-kyc.yaml](svc-cus-profile-kyc.yaml) | Customer profile and KYC | `evt.cus.customer.v1` | seven customer event types (see the spec) | Published after save via an external `DomainEventPublisher`; no outbox |
 
 One topic per aggregate (ADR-019, owner decision 2026-10-08): every event of a namespace's aggregate goes to
@@ -35,7 +37,7 @@ rejects a send channel outside it. Topics are provisioned by `scripts/kafka/crea
 `fintechbankx-platform-event-streaming-kafka`.
 
 No other fintechbankx service publishes events in code today (consent, account data, payee, metadata, open data,
-risk, compliance, bulk and recurring payments). Risk, compliance, consent, recurring mandates and bulk payments are
+risk, compliance, bulk and recurring payments). Risk, compliance and consent are
 expected publishers and are listed in the catalog index without a file. Add a contract here, and update the index
 entry, when the provider adds one.
 
@@ -65,8 +67,8 @@ Status today (Proposed):
 | `svc-rsk-decisioning` | `evt.rsk.risk` | `no-contract` | expected |
 | `svc-cmp-evidence` | `evt.cmp.compliance` | `no-contract` | expected |
 | `svc-of-consent-authorization` | `evt.of.consent` | `no-contract` | expected |
-| `svc-pay-recurring-mandates` | `evt.pay.mandate` | `no-contract` | expected |
-| `svc-pay-bulk-orchestration` | `evt.pay.bulk` | `no-contract` | expected |
+| `svc-pay-recurring-mandates` | `evt.pay.mandate` | `contract-only` | outbox and relay on unmerged provider branch `claude/lending-payments-deployable-zxfdi1` |
+| `svc-pay-bulk-orchestration` | `evt.pay.bulk` | `contract-only` | outbox and relay on unmerged provider branch `claude/lending-payments-deployable-zxfdi1` |
 
 No provider repository carries its own AsyncAPI file yet, so every `providerSpecPath` is `null`.
 
