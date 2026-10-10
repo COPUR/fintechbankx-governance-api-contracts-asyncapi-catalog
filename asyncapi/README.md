@@ -68,7 +68,7 @@ Status today (Proposed):
 | `svc-pay-recurring-mandates` | `evt.pay.mandate` | `no-contract` | expected |
 | `svc-pay-bulk-orchestration` | `evt.pay.bulk` | `no-contract` | expected |
 
-In this PR every `providerSpecPath` is still `null`; the stacked catalog PRs (#11 to #13) set it for the providers whose repositories now carry their own spec.
+In this PR every `providerSpecPath` is still `null`; the stacked catalog PRs (#11 to #13) set it for the providers whose repositories now carry their own spec. A catalog PR that points `providerSpecPath` at an unmerged provider branch names that branch in `pendingImplementation` and merges only after the provider PR, so on the catalog's default branch the path always resolves on the provider's default branch.
 
 ## Checks
 
