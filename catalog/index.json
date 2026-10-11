@@ -39,7 +39,7 @@
       "implementationNote": "Domain events raised on the Loan aggregate; no publisher adapter or outbox on the default branch.",
       "pendingImplementation": {
         "branch": "claude/project-thread-ty79y4",
-        "pullRequest": "https://github.com/COPUR/fintechbankx-lendingpayments-loan-lifecycle-core/pull/14",
+        "pullRequest": "COPUR/fintechbankx-lendingpayments-loan-lifecycle-core#14",
         "repo": "COPUR/fintechbankx-lendingpayments-loan-lifecycle-core",
         "status": "outbox",
         "note": "Transactional outbox, envelope factory and relay on an unmerged branch, with the provider copy api/asyncapi/svc-ln-loan-lifecycle.yaml (catalog copy mirrors provider commit 417aec5); status changes to outbox when the provider merges it."
@@ -64,7 +64,7 @@
       "implementationNote": "Domain events raised on the Payment aggregate; no publisher adapter or outbox on the default branch.",
       "pendingImplementation": {
         "branch": "claude/project-thread-ty79y4",
-        "pullRequest": "https://github.com/COPUR/fintechbankx-lendingpayments-payment-orchestration-initiation-settlement/pull/14",
+        "pullRequest": "COPUR/fintechbankx-lendingpayments-payment-orchestration-initiation-settlement#14",
         "repo": "COPUR/fintechbankx-lendingpayments-payment-orchestration-initiation-settlement",
         "status": "outbox",
         "note": "Transactional outbox, envelope factory and relay on an unmerged branch, with the provider copy api/asyncapi/svc-pay-initiation-settlement.yaml (catalog copy mirrors provider commit 818885e); status changes to outbox when the provider merges it."
@@ -85,7 +85,7 @@
       "implementationNote": "KafkaPayRequestNotificationAdapter on the provider default branch publishes bare records to the legacy topic rtp.pay_requests.v1 (no envelope, no outbox). The pending outbox publishes Payments.PayRequest.{Created,Accepted,Rejected}.v1 on evt.pay.rtp.v1.",
       "pendingImplementation": {
         "branch": "claude/lending-payments-deployable-zxfdi1",
-        "pullRequest": "https://github.com/COPUR/fintechbankx-lendingpayments-payment-orchestration-request-to-pay/pull/14",
+        "pullRequest": "COPUR/fintechbankx-lendingpayments-payment-orchestration-request-to-pay#14",
         "repo": "COPUR/fintechbankx-lendingpayments-payment-orchestration-request-to-pay",
         "status": "outbox",
         "note": "Transactional outbox and relay on an unmerged branch; the catalog copy mirrors provider commit 9f24262. The legacy topic rtp.pay_requests.v1 is retired without dual-publish because it had no consumer."
@@ -162,7 +162,7 @@
       "implementationNote": "No publisher on the provider default branch. The service consumes nothing, so it lists no dead-letter topic (consumer-owned DLQs, ADR-019).",
       "pendingImplementation": {
         "branch": "claude/lending-payments-deployable-zxfdi1",
-        "pullRequest": "https://github.com/COPUR/fintechbankx-lendingpayments-payment-orchestration-recurring-mandates/pull/13",
+        "pullRequest": "COPUR/fintechbankx-lendingpayments-payment-orchestration-recurring-mandates#13",
         "repo": "COPUR/fintechbankx-lendingpayments-payment-orchestration-recurring-mandates",
         "status": "outbox",
         "note": "MandateEventEnvelopeFactory, transactional outbox (sc_pay_recurring_mandates.mandate_outbox_event) and relay on an unmerged branch, with the provider copy api/asyncapi/svc-pay-recurring-mandates.yaml (catalog copy mirrors provider commit 271f77e); status changes to outbox when the provider merges it."
@@ -183,7 +183,7 @@
       "implementationNote": "No publisher on the provider default branch. The service consumes nothing, so it lists no dead-letter topic (consumer-owned DLQs, ADR-019). Payments.BulkFile.Completed.v1 (on evt.pay.bulk.v1) is declared but not emitted (x-emitted: false in the spec) until accepted items are handed to svc-pay-initiation-settlement.",
       "pendingImplementation": {
         "branch": "claude/lending-payments-deployable-zxfdi1",
-        "pullRequest": "https://github.com/COPUR/fintechbankx-lendingpayments-payment-orchestration-bulk-orchestration/pull/13",
+        "pullRequest": "COPUR/fintechbankx-lendingpayments-payment-orchestration-bulk-orchestration#13",
         "repo": "COPUR/fintechbankx-lendingpayments-payment-orchestration-bulk-orchestration",
         "status": "outbox",
         "note": "BulkFileEventEnvelopeFactory, transactional outbox (sc_pay_bulk_orchestration.outbox_event) and relay on an unmerged branch, with the provider copy api/asyncapi/svc-pay-bulk-orchestration.yaml (catalog copy mirrors provider commit 21bae65). It writes Accepted and Rejected (reason ALL_ITEMS_REJECTED or CONSENT_NOT_USABLE) only; Completed stays unemitted. Status changes to outbox when the provider merges it."
