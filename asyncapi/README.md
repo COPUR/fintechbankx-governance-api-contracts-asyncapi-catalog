@@ -2,7 +2,7 @@
 
 Status: **Proposed**. Each provider repository owns its contract; this catalog mirrors it.
 
-One AsyncAPI 3.0.0 document per publishing service, named `asyncapi/<service-id>.yaml`. Every message uses the
+One AsyncAPI 3.0.0 document per service that publishes or consumes, named `asyncapi/<service-id>.yaml`. Every message uses the
 standard envelope in [`common/event-envelope.yaml`](common/event-envelope.yaml): `eventId`, `eventType`,
 `occurredAt`, `aggregateId`, `aggregateVersion`, `correlationId`, `causationId`, `producer`, `data`. The Kafka
 record key is `aggregateId`. Naming follows
@@ -14,6 +14,8 @@ record key is `aggregateId`. Naming follows
 | [svc-pay-initiation-settlement.yaml](svc-pay-initiation-settlement.yaml) | Payment initiation and settlement | `evt.pay.payment.v1` | nine payment and loan-payment event types (see the spec) | Domain events raised; no publisher adapter |
 | [svc-pay-request-to-pay.yaml](svc-pay-request-to-pay.yaml) | Request to pay | `evt.pay.rtp.v1` | `Payments.PayRequest.*.v1`: Created, Accepted, Rejected | Published to legacy `rtp.pay_requests.v1` without envelope |
 | [svc-cus-profile-kyc.yaml](svc-cus-profile-kyc.yaml) | Customer profile and KYC | `evt.cus.customer.v1` | seven customer event types (see the spec) | Published after save via an external `DomainEventPublisher`; no outbox |
+| [svc-of-consent-authorization.yaml](svc-of-consent-authorization.yaml) | Consent authorization | `evt.of.consent.v1` | `OpenFinance.Consent.*.v1`: Created, Authorized, Revoked, Expired | Outbox and relay on unmerged provider branch; default branch publishes nothing |
+| [svc-of-payee-verification.yaml](svc-of-payee-verification.yaml) | Payee verification | `evt.of.payee.v1` | `OpenFinance.PayeeVerification.Completed.v1` | Outbox and relay on unmerged provider branch; default branch publishes nothing |
 
 One topic per aggregate (ADR-019, owner decision 2026-10-08): every event of a namespace's aggregate goes to
 `<namespace>.v<N>`, keyed by the aggregate id, so one aggregate instance's events stay in order in one partition.
@@ -34,14 +36,22 @@ A spec lists its DLQ as a `send` channel in its own namespace; the catalog check
 rejects a send channel outside it. Topics are provisioned by `scripts/kafka/create-topics.sh` in
 `fintechbankx-platform-event-streaming-kafka`.
 
-No other fintechbankx service publishes events in code today (consent, account data, payee, metadata, open data,
-risk, compliance, bulk and recurring payments). Risk, compliance, consent, recurring mandates and bulk payments are
-expected publishers and are listed in the catalog index without a file. Add a contract here, and update the index
+No other fintechbankx service publishes events in code today (account data, metadata, open data, risk, compliance,
+bulk and recurring payments). Risk, compliance, recurring mandates and bulk payments are expected publishers and
+are listed in the catalog index without a file. Add a contract here, and update the index
 entry, when the provider adds one.
+
+Consumer-only contracts (no publish operation; the spec lists the consumed topic and the service's own DLQ):
+
+| Contract | Service | Consumes | Consumer group | Own DLQ |
+|---|---|---|---|---|
+| [svc-of-personal-financial-data.yaml](svc-of-personal-financial-data.yaml) | Personal financial data | `evt.of.consent.v1` | `cg.svc-of-personal-financial-data.consent-projection.v1` | `evt.of.account.dlq.v1` |
+| [svc-of-banking-metadata.yaml](svc-of-banking-metadata.yaml) | Banking metadata | `evt.of.consent.v1` | `cg.svc-of-banking-metadata.consent-projection.v1` | `evt.of.metadata.dlq.v1` |
+| [svc-of-business-financial-data.yaml](svc-of-business-financial-data.yaml) | Business financial data | `evt.of.consent.v1` | `cg.svc-of-business-financial-data.consent-projection.v1` | `evt.of.corporate.dlq.v1` |
 
 ## Catalog index
 
-[`catalog/index.json`](../catalog/index.json) lists every publishing service, one entry per `asyncapi/<service-id>.yaml`
+[`catalog/index.json`](../catalog/index.json) lists every service that publishes or consumes, one entry per `asyncapi/<service-id>.yaml`
 plus "expected" entries (`file: null`) for services that will publish but have no contract yet. Fields:
 
 | Field | Meaning |
@@ -64,11 +74,15 @@ Status today (Proposed):
 | `svc-pay-request-to-pay` | `evt.pay.rtp` | `publishes-legacy` | legacy topic `rtp.pay_requests.v1`, no envelope |
 | `svc-rsk-decisioning` | `evt.rsk.risk` | `no-contract` | expected |
 | `svc-cmp-evidence` | `evt.cmp.compliance` | `no-contract` | expected |
-| `svc-of-consent-authorization` | `evt.of.consent` | `no-contract` | expected |
+| `svc-of-consent-authorization` | `evt.of.consent` | `contract-only` | outbox and relay on unmerged provider branch `claude/openfinance-deployable-ra36dq` |
+| `svc-of-payee-verification` | `evt.of.payee` | `contract-only` | outbox and relay on unmerged provider branch `claude/openfinance-deployable-ra36dq` |
+| `svc-of-personal-financial-data` | `evt.of.account` | `contract-only` | consumer only (`evt.of.consent.v1`, DLQ `evt.of.account.dlq.v1`); spec on unmerged provider branch `claude/openfinance-deployable-ra36dq` |
+| `svc-of-banking-metadata` | `evt.of.metadata` | `contract-only` | consumer only (`evt.of.consent.v1`, DLQ `evt.of.metadata.dlq.v1`); spec on unmerged provider branch `claude/openfinance-deployable-ra36dq` |
+| `svc-of-business-financial-data` | `evt.of.corporate` | `contract-only` | consumer only (`evt.of.consent.v1`, DLQ `evt.of.corporate.dlq.v1`); spec on unmerged provider branch `claude/openfinance-deployable-ra36dq` |
 | `svc-pay-recurring-mandates` | `evt.pay.mandate` | `no-contract` | expected |
 | `svc-pay-bulk-orchestration` | `evt.pay.bulk` | `no-contract` | expected |
 
-In this PR every `providerSpecPath` is still `null`; the stacked catalog PRs (#11 to #13) set it for the providers whose repositories now carry their own spec. A catalog PR that points `providerSpecPath` at an unmerged provider branch names that branch in `pendingImplementation` and merges only after the provider PR, so on the catalog's default branch the path always resolves on the provider's default branch.
+The consent and payee-verification publishers and the personal-financial-data, banking-metadata and business-financial-data consumers carry `api/asyncapi/<service-id>.yaml` on the provider branch named in `pendingImplementation`, so their `providerSpecPath` is set; each entry's `pendingImplementation` names the provider pull request (`pullRequest`) and its `note` names the provider commit its catalog copy mirrors. A catalog PR that points `providerSpecPath` at an unmerged provider branch merges only after that provider PR, so on the catalog's default branch the path always resolves on the provider's default branch. The other entries stay `null` until their provider carries its own spec.
 
 ## Checks
 
