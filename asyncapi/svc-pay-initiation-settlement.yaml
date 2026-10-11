@@ -1,20 +1,40 @@
-# AsyncAPI contract for svc-pay-initiation-settlement.
-# Status: Proposed. The provider repository owns this contract; this catalog mirrors it.
-# Naming: docs/NAMING_CONVENTION_DDD_EDA_BUSINESS_CONTEXT.md
-# Validate: npx -y @asyncapi/cli@2.13.0 validate asyncapi/svc-pay-initiation-settlement.yaml
+# AsyncAPI contract for svc-pay-initiation-settlement (provider copy; source of truth).
+# Status: Proposed. Must match payment-infrastructure PaymentEventEnvelopeFactory (PaymentEventContractTest).
+# Channels, operations and messages match the catalog's converted copy at 44837cc (one topic per aggregate).
+# Validate: npx -y @asyncapi/cli@2.13.0 validate api/asyncapi/svc-pay-initiation-settlement.yaml
 asyncapi: 3.0.0
 id: urn:fintechbankx:asyncapi:svc-pay-initiation-settlement
 info:
   title: svc-pay-initiation-settlement events
   version: 1.0.0
-  description: |-
-    Event contract for svc-pay-initiation-settlement (repository fintechbankx-lendingpayments-payment-orchestration-initiation-settlement, canonical name fintechbankx-payments-initiation-settlement-service).
+  description: 'Event contract for svc-pay-initiation-settlement (repository fintechbankx-lendingpayments-payment-orchestration-initiation-settlement).
+
 
     Status: Proposed. Owner: Payment Orchestration Squad, Lending and Money Movement Tribe. Event namespace: `evt.pay.payment`.
+    This file in the provider repository is the source; the catalog copy (fintechbankx-governance-api-contracts-asyncapi-catalog)
+    is updated by a pending catalog PR.
 
-    Implementation status: Contract only. Events are raised on the Payment aggregate (payment-domain Payment.java) but the repository has no publisher adapter or outbox yet.
 
-    Every message uses the standard envelope (common/event-envelope.yaml). All events go to one topic per aggregate, `evt.pay.payment.v1`, with the record key = aggregateId and the eventType, eventId and correlationId record headers (ADR-019). The topic uses cleanup.policy=delete. Adding an optional field or a new event type is a minor change; a removal, rename or type change in one event is a new event major (eventType ...v2) published on the same topic alongside the old one until consumers move.
+    Implementation: payment-infrastructure PaymentEventEnvelopeFactory writes the envelope into the transactional
+    outbox (table outbox_event) in the same transaction as the payment; OutboxRelay publishes every event to the one
+    aggregate topic `evt.pay.payment.v1` (ADR-019, one topic per aggregate) with key = aggregateId and headers eventType, eventId, correlationId, x-fapi-interaction-id (when present) and traceparent (when the
+    request had one). Delivery is at least once; consumers de-duplicate on eventId and order by aggregateVersion.
+    Per ADR-021 decision 4 only a payload error (record too large, serialization, invalid topic) parks a row; any
+    other send failure stops the relay without skipping anything. A parked row holds back the later events of the
+    same payment until an operator replays it, so a later event of a payment never arrives before a parked one
+    (consumers such as the loan saga see LoanPaymentCreated before LoanPaymentCompleted); events of other payments
+    continue.
+
+
+    The service consumes no topics, so it owns no dead-letter topic (DLQs are consumer-owned: a consumer of this
+    topic writes give-ups to its own namespace''s DLQ). The topic is created by the platform (spring.kafka.admin.auto-create=false);
+    it uses cleanup.policy=delete.
+
+
+    Every message uses the standard envelope (common/event-envelope.yaml, a copy of the catalog file at 44837cc). Money
+    is a decimal string plus an ISO 4217 code. Adding an optional field or a new event type is a minor change; a
+    removal, rename or type change in one event is a new event major (eventType ...v2) published on the same topic
+    alongside the old one until consumers move.'
   tags:
   - name: payments
   - name: evt.pay.payment
@@ -26,8 +46,8 @@ servers:
   msk:
     host: '{bootstrapServers}'
     protocol: kafka-secure
-    description: Amazon MSK cluster of the FinTechBankX event platform (svc-evt-streaming) on AWS. TLS in transit, SASL_SSL
-      with mechanism AWS_MSK_IAM using the service's IRSA role (ADR-024, platform contract 2026-10-08).
+    description: Amazon MSK cluster of the FinTechBankX event platform (svc-evt-streaming) on AWS. TLS in transit,
+      SASL_SSL with mechanism AWS_MSK_IAM using the service's IRSA role (ADR-024, platform contract 2026-10-08).
     variables:
       bootstrapServers:
         description: MSK IAM bootstrap brokers (port 9098), injected per environment by the platform.
@@ -36,8 +56,8 @@ servers:
   local:
     host: '{bootstrapServers}'
     protocol: kafka-secure
-    description: Strimzi cluster in namespace kafka, for local and non-AWS environments only. Mutual TLS with Strimzi-issued
-      client certificates.
+    description: Strimzi cluster in namespace kafka, for local and non-AWS environments only. Mutual TLS with
+      Strimzi-issued client certificates.
     variables:
       bootstrapServers:
         description: Strimzi TLS bootstrap service, injected per environment.
@@ -162,12 +182,8 @@ components:
       $ref: ./common/event-envelope.yaml#/EventEnvelope
     EventHeaders:
       $ref: ./common/event-envelope.yaml#/EventHeaders
-    DeadLetterHeaders:
-      $ref: ./common/event-envelope.yaml#/DeadLetterHeaders
     MonetaryAmount:
       $ref: ./common/event-envelope.yaml#/MonetaryAmount
-    DecimalAmount:
-      $ref: ./common/event-envelope.yaml#/DecimalAmount
     PaymentCreatedData:
       type: object
       description: Payload of Payments.Payment.Created.v1.
@@ -250,8 +266,11 @@ components:
           description: Customer id.
           minLength: 1
         failureReason:
-          type: string
-          description: Failure reason code or text. Must not contain personal data.
+          type:
+          - string
+          - 'null'
+          description: Failure reason code or text as given by the caller; null when none was given. Must not contain
+            personal data.
       required:
       - paymentId
       - customerId
@@ -269,8 +288,11 @@ components:
           description: Customer id.
           minLength: 1
         cancellationReason:
-          type: string
-          description: Cancellation reason. Must not contain personal data.
+          type:
+          - string
+          - 'null'
+          description: Cancellation reason as given by the caller; null when none was given. Must not contain personal
+            data.
       required:
       - paymentId
       - customerId
@@ -314,7 +336,7 @@ components:
         scheduledAmount:
           allOf:
           - $ref: '#/components/schemas/MonetaryAmount'
-          description: Scheduled repayment amount.
+          description: Repayment amount requested by the customer.
       required:
       - paymentId
       - customerId
@@ -322,7 +344,8 @@ components:
       - scheduledAmount
     PaymentLoanPaymentCompletedData:
       type: object
-      description: Payload of Payments.Payment.LoanPaymentCompleted.v1.
+      description: Payload of Payments.Payment.LoanPaymentCompleted.v1. Consumed by svc-ln-loan-lifecycle, which
+        applies the repayment to the loan (repayment allocation is lending data).
       properties:
         paymentId:
           type: string
@@ -339,20 +362,24 @@ components:
         actualAmount:
           allOf:
           - $ref: '#/components/schemas/MonetaryAmount'
-          description: Amount actually paid.
-        transactionReference:
-          type: string
-          description: Settlement transaction reference of the payment.
-          minLength: 1
+          description: Amount actually settled, in the payment's currency.
         completedAt:
           type: string
           format: date-time
-          description: When the payment completed.
+          description: UTC instant at which the repayment settled.
+        transactionReference:
+          type:
+          - string
+          - 'null'
+          maxLength: 100
+          description: Settlement reference from the caller that completed the repayment; null when none was given.
       required:
       - paymentId
       - customerId
       - loanId
       - actualAmount
+      - completedAt
+      - transactionReference
     PaymentLoanPaymentFailedData:
       type: object
       description: Payload of Payments.Payment.LoanPaymentFailed.v1.
@@ -370,8 +397,11 @@ components:
           description: Loan id.
           minLength: 1
         failureReason:
-          type: string
-          description: Failure reason code or text. Must not contain personal data.
+          type:
+          - string
+          - 'null'
+          description: Failure reason code or text as given by the caller; null when none was given. Must not contain
+            personal data.
       required:
       - paymentId
       - customerId
@@ -648,27 +678,12 @@ components:
             description: aggregateId (paymentId).
           bindingVersion: 0.5.0
       x-source-class: com.bank.payment.domain.LoanPaymentFailedEvent
-    DeadLetter:
-      name: DeadLetter
-      title: Dead letter for evt.pay.payment
-      summary: A message from this namespace that a consumer could not process after bounded retries.
-      contentType: application/json
-      headers:
-        $ref: '#/components/schemas/DeadLetterHeaders'
-      payload:
-        $ref: '#/components/schemas/EventEnvelope'
-      bindings:
-        kafka:
-          key:
-            type: string
-            description: Original record key (aggregateId).
-          bindingVersion: 0.5.0
   securitySchemes:
     mskIam:
       type: userPassword
-      description: SASL_SSL with SASL mechanism AWS_MSK_IAM. There is no user or password; the client signs with the AWS
-        credentials of its IRSA role, and a topic-scoped IAM policy (terraform module msk-client-access) grants produce
-        or consume rights. AsyncAPI has no IAM scheme type, so userPassword stands for the SASL family.
+      description: SASL_SSL with SASL mechanism AWS_MSK_IAM. There is no user or password; the client signs with the
+        AWS credentials of its IRSA role, and a topic-scoped IAM policy (terraform module msk-client-access) grants
+        produce or consume rights. AsyncAPI has no IAM scheme type, so userPassword stands for the SASL family.
       x-sasl-mechanism: AWS_MSK_IAM
     mtls:
       type: X509
