@@ -49,6 +49,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # Full history so the AsyncAPI breaking-change check can diff against the base branch.
+          fetch-depth: 0
 
       - name: Set up Java 23
         uses: actions/setup-java@v4
@@ -102,6 +105,19 @@ jobs:
             echo "Validating ${spec}"
             npx -y @asyncapi/cli@2.13.0 validate "${spec}"
           done
+
+      - name: AsyncAPI breaking-change check
+        if: ${{ hashFiles('asyncapi/*.yaml') != '' || hashFiles('asyncapi/*.yml') != '' }}
+        env:
+          # Always main, also for stacked PRs: versions count from the first merge to main, and a spec
+          # that is only on a stacked base branch is pre-release (asyncapi/README.md, Change rules).
+          BASE_REF: origin/main
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Compares each asyncapi/*.yaml with the merge base of BASE_REF; new files are skipped.
+          # Rules and the accepted-breaking exception file: asyncapi/README.md.
+          bash scripts/ci/asyncapi-breaking.sh
 
       - name: Guardrail - disallow generic map request payloads
         shell: bash

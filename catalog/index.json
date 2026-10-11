@@ -1,0 +1,165 @@
+{
+  "$comment": "Status: Proposed. Generated from asyncapi/*.yaml and maintained by the API Governance Guild; checked by scripts/ci/check-asyncapi-catalog.mjs.",
+  "schemaVersion": 1,
+  "statusValues": {
+    "contract-only": "Contract exists; provider default branch does not publish to Kafka.",
+    "publishes-legacy": "Provider publishes, but to a legacy topic or without the envelope; dual-publish to the contract topics during migration.",
+    "outbox": "Provider publishes the contract topics through a transactional outbox.",
+    "no-contract": "Expected publisher without a contract yet (file is null)."
+  },
+  "services": [
+    {
+      "file": "asyncapi/svc-cus-profile-kyc.yaml",
+      "serviceId": "svc-cus-profile-kyc",
+      "ownerRepo": "COPUR/fintechbankx-customer-profile-kyc-core",
+      "canonicalRepo": "fintechbankx-customer-profile-kyc-service",
+      "owningSquad": "Customer and KYC Squad",
+      "namespace": "evt.cus.customer",
+      "implementationStatus": "contract-only",
+      "implementationNote": "Customer aggregate events are passed to DomainEventPublisher.publishAll after save; no publisher implementation or outbox in the repository default branch, so nothing reaches Kafka from it.",
+      "pendingImplementation": {
+        "branch": "claude/project-thread-ty79y4",
+        "repo": "COPUR/fintechbankx-customer-profile-kyc-core",
+        "status": "outbox",
+        "note": "Transactional outbox, envelope factory and relay on an unmerged branch; status changes to outbox when the provider merges it."
+      },
+      "channels": [
+        "evt.cus.customer.v1"
+      ],
+      "providerSpecPath": null
+    },
+    {
+      "file": "asyncapi/svc-ln-loan-lifecycle.yaml",
+      "serviceId": "svc-ln-loan-lifecycle",
+      "ownerRepo": "COPUR/fintechbankx-lendingpayments-loan-lifecycle-core",
+      "canonicalRepo": "fintechbankx-lending-loan-lifecycle-service",
+      "owningSquad": "Loan Lifecycle Squad",
+      "namespace": "evt.ln.loan",
+      "implementationStatus": "contract-only",
+      "implementationNote": "Domain events raised on the Loan aggregate; no publisher adapter or outbox on the default branch.",
+      "pendingImplementation": {
+        "branch": "claude/project-thread-ty79y4",
+        "repo": "COPUR/fintechbankx-lendingpayments-loan-lifecycle-core",
+        "status": "outbox",
+        "note": "Transactional outbox, envelope factory and relay on an unmerged branch; status changes to outbox when the provider merges it."
+      },
+      "channels": [
+        "evt.ln.loan.v1"
+      ],
+      "providerSpecPath": null
+    },
+    {
+      "file": "asyncapi/svc-pay-initiation-settlement.yaml",
+      "serviceId": "svc-pay-initiation-settlement",
+      "ownerRepo": "COPUR/fintechbankx-lendingpayments-payment-orchestration-initiation-settlement",
+      "canonicalRepo": "fintechbankx-payments-initiation-settlement-service",
+      "owningSquad": "Payment Orchestration Squad",
+      "namespace": "evt.pay.payment",
+      "implementationStatus": "contract-only",
+      "implementationNote": "Domain events raised on the Payment aggregate; no publisher adapter or outbox on the default branch.",
+      "pendingImplementation": {
+        "branch": "claude/project-thread-ty79y4",
+        "repo": "COPUR/fintechbankx-lendingpayments-payment-orchestration-initiation-settlement",
+        "status": "outbox",
+        "note": "Transactional outbox, envelope factory and relay on an unmerged branch; status changes to outbox when the provider merges it."
+      },
+      "channels": [
+        "evt.pay.payment.v1"
+      ],
+      "providerSpecPath": null
+    },
+    {
+      "file": "asyncapi/svc-pay-request-to-pay.yaml",
+      "serviceId": "svc-pay-request-to-pay",
+      "ownerRepo": "COPUR/fintechbankx-lendingpayments-payment-orchestration-request-to-pay",
+      "canonicalRepo": "fintechbankx-payments-request-to-pay-service",
+      "owningSquad": "Recurring and Bulk Payments Squad",
+      "namespace": "evt.pay.rtp",
+      "implementationStatus": "publishes-legacy",
+      "implementationNote": "KafkaPayRequestNotificationAdapter publishes bare records to the legacy topic rtp.pay_requests.v1 (no envelope, no outbox); dual-publish required during migration. Lending and payments pillar is moving it to an outbox on evt.pay.rtp.created/accepted/rejected.v1 and retiring rtp.pay_requests.v1.",
+      "pendingImplementation": null,
+      "channels": [
+        "evt.pay.rtp.v1"
+      ],
+      "providerSpecPath": null
+    },
+    {
+      "file": null,
+      "serviceId": "svc-rsk-decisioning",
+      "ownerRepo": "COPUR/fintechbankx-riskcompliance-risk-decisioning-core",
+      "canonicalRepo": "fintechbankx-risk-decisioning-service",
+      "owningSquad": "Risk and Compliance Decisioning Squad",
+      "namespace": "evt.rsk.risk",
+      "channels": [],
+      "providerSpecPath": null,
+      "implementationStatus": "no-contract",
+      "implementationNote": "Expected publisher; no event publishing code and no AsyncAPI contract in the provider repository yet. Add the contract in the provider repository first, then mirror it here.",
+      "pendingImplementation": null
+    },
+    {
+      "file": null,
+      "serviceId": "svc-cmp-evidence",
+      "ownerRepo": "COPUR/fintechbankx-riskcompliance-compliance-evidence-core",
+      "canonicalRepo": "fintechbankx-compliance-evidence-service",
+      "owningSquad": "Risk and Compliance Decisioning Squad",
+      "namespace": "evt.cmp.compliance",
+      "channels": [],
+      "providerSpecPath": null,
+      "implementationStatus": "no-contract",
+      "implementationNote": "Expected publisher; no event publishing code and no AsyncAPI contract in the provider repository yet. Add the contract in the provider repository first, then mirror it here.",
+      "pendingImplementation": null
+    },
+    {
+      "file": null,
+      "serviceId": "svc-of-consent-authorization",
+      "ownerRepo": "COPUR/fintechbankx-openfinance-consent-auth-service",
+      "canonicalRepo": "fintechbankx-openfinance-consent-authorization-service",
+      "owningSquad": "Consent and Authorization Squad",
+      "namespace": "evt.of.consent",
+      "channels": [],
+      "providerSpecPath": null,
+      "implementationStatus": "no-contract",
+      "implementationNote": "Expected publisher; no event publishing code and no AsyncAPI contract in the provider repository yet. Add the contract in the provider repository first, then mirror it here. Open finance pillar plans evt.of.consent.created/authorized/revoked/expired.v1 (optional accountIds in data); personal-financial-data, business-financial-data and banking-metadata consume them.",
+      "pendingImplementation": null
+    },
+    {
+      "file": null,
+      "serviceId": "svc-of-payee-verification",
+      "ownerRepo": "COPUR/fintechbankx-openfinance-payee-metadata-payee-verification",
+      "canonicalRepo": "fintechbankx-openfinance-payee-verification-service",
+      "owningSquad": "Payee and Metadata Squad",
+      "namespace": "evt.of.payee",
+      "channels": [],
+      "providerSpecPath": null,
+      "implementationStatus": "no-contract",
+      "implementationNote": "Open finance pillar plans event type OpenFinance.PayeeVerification.Completed.v1 on evt.of.payee.v1 (2026-10-08). No contract yet.",
+      "pendingImplementation": null
+    },
+    {
+      "file": null,
+      "serviceId": "svc-pay-recurring-mandates",
+      "ownerRepo": "COPUR/fintechbankx-lendingpayments-payment-orchestration-recurring-mandates",
+      "canonicalRepo": "fintechbankx-payments-recurring-mandates-service",
+      "owningSquad": "Recurring and Bulk Payments Squad",
+      "namespace": "evt.pay.mandate",
+      "channels": [],
+      "providerSpecPath": null,
+      "implementationStatus": "no-contract",
+      "implementationNote": "Expected publisher; no event publishing code and no AsyncAPI contract in the provider repository yet. Add the contract in the provider repository first, then mirror it here.",
+      "pendingImplementation": null
+    },
+    {
+      "file": null,
+      "serviceId": "svc-pay-bulk-orchestration",
+      "ownerRepo": "COPUR/fintechbankx-lendingpayments-payment-orchestration-bulk-orchestration",
+      "canonicalRepo": "fintechbankx-payments-bulk-orchestration-service",
+      "owningSquad": "Recurring and Bulk Payments Squad",
+      "namespace": "evt.pay.bulk",
+      "channels": [],
+      "providerSpecPath": null,
+      "implementationStatus": "no-contract",
+      "implementationNote": "Expected publisher; no event publishing code and no AsyncAPI contract in the provider repository yet. Add the contract in the provider repository first, then mirror it here.",
+      "pendingImplementation": null
+    }
+  ]
+}

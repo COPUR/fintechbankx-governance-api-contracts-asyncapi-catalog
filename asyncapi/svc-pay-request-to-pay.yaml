@@ -14,7 +14,7 @@ info:
 
     Implementation status: Published today by KafkaPayRequestNotificationAdapter to the legacy topic rtp.pay_requests.v1 as bare event records (no envelope, no outbox). This contract is the target; the producer must dual-publish during migration.
 
-    Every message uses the standard envelope (common/event-envelope.yaml). Record key is the aggregateId. Topics use cleanup.policy=delete. Adding an optional field is a minor change; any removal, rename or type change is a new major version on a new topic with dual-publish.
+    Every message uses the standard envelope (common/event-envelope.yaml). All events go to one topic per aggregate, `evt.pay.rtp.v1`, with the record key = aggregateId and the eventType, eventId and correlationId record headers (ADR-019). The topic uses cleanup.policy=delete. Adding an optional field or a new event type is a minor change; a removal, rename or type change in one event is a new event major (eventType ...v2) published on the same topic alongside the old one until consumers move.
 
     Mapping notes: Source record fields eventId, aggregateId and occurredOn move to the envelope (eventId, aggregateId, occurredAt). The record field version is a schema version (always 1) and is carried by the eventType suffix, not by aggregateVersion.
   tags:
@@ -25,88 +25,50 @@ info:
   x-owning-squad: Recurring and Bulk Payments Squad
 defaultContentType: application/json
 servers:
-  kafka:
+  msk:
     host: '{bootstrapServers}'
     protocol: kafka-secure
-    description: FinTechBankX event platform cluster (svc-evt-streaming). mTLS required.
+    description: Amazon MSK cluster of the FinTechBankX event platform (svc-evt-streaming) on AWS. TLS in transit, SASL_SSL
+      with mechanism AWS_MSK_IAM using the service's IRSA role (ADR-024, platform contract 2026-10-08).
     variables:
       bootstrapServers:
-        description: Bootstrap servers, injected per environment by the platform.
+        description: MSK IAM bootstrap brokers (port 9098), injected per environment by the platform.
+    security:
+    - $ref: '#/components/securitySchemes/mskIam'
+  local:
+    host: '{bootstrapServers}'
+    protocol: kafka-secure
+    description: Strimzi cluster in namespace kafka, for local and non-AWS environments only. Mutual TLS with Strimzi-issued
+      client certificates.
+    variables:
+      bootstrapServers:
+        description: Strimzi TLS bootstrap service, injected per environment.
     security:
     - $ref: '#/components/securitySchemes/mtls'
 channels:
-  created:
-    address: evt.pay.rtp.created.v1
-    title: evt.pay.rtp.created.v1
-    description: Payments.PayRequest.Created.v1. A request to pay was created for the debtor.
+  rtp:
+    address: evt.pay.rtp.v1
+    title: evt.pay.rtp.v1
+    description: 'Every event of the rtp aggregate, keyed by aggregateId so that the events of one aggregate instance stay
+      in order in one partition (ADR-019, one topic per aggregate). The eventType record header names the event:
+      Payments.PayRequest.Created.v1, Payments.PayRequest.Accepted.v1, Payments.PayRequest.Rejected.v1. Consumers skip
+      event types they do not handle.'
     messages:
       PayRequestCreated:
         $ref: '#/components/messages/PayRequestCreated'
-    bindings:
-      kafka:
-        topic: evt.pay.rtp.created.v1
-        partitions: 3
-        replicas: 3
-        topicConfiguration:
-          cleanup.policy:
-          - delete
-          retention.ms: 604800000
-          max.message.bytes: 1048576
-        bindingVersion: 0.5.0
-  accepted:
-    address: evt.pay.rtp.accepted.v1
-    title: evt.pay.rtp.accepted.v1
-    description: Payments.PayRequest.Accepted.v1. The debtor accepted the request and a payment was created (request
-      status CONSUMED).
-    messages:
       PayRequestAccepted:
         $ref: '#/components/messages/PayRequestAccepted'
-    bindings:
-      kafka:
-        topic: evt.pay.rtp.accepted.v1
-        partitions: 3
-        replicas: 3
-        topicConfiguration:
-          cleanup.policy:
-          - delete
-          retention.ms: 604800000
-          max.message.bytes: 1048576
-        bindingVersion: 0.5.0
-  rejected:
-    address: evt.pay.rtp.rejected.v1
-    title: evt.pay.rtp.rejected.v1
-    description: Payments.PayRequest.Rejected.v1. The debtor rejected the request.
-    messages:
       PayRequestRejected:
         $ref: '#/components/messages/PayRequestRejected'
     bindings:
       kafka:
-        topic: evt.pay.rtp.rejected.v1
+        topic: evt.pay.rtp.v1
         partitions: 3
         replicas: 3
         topicConfiguration:
           cleanup.policy:
           - delete
           retention.ms: 604800000
-          max.message.bytes: 1048576
-        bindingVersion: 0.5.0
-  deadLetter:
-    address: evt.pay.rtp.dlq.v1
-    title: evt.pay.rtp.dlq.v1
-    description: Dead-letter topic for the evt.pay.rtp namespace. Written by consumers (not by svc-pay-request-to-pay)
-      after bounded retries; replayed by the owning consumer squad.
-    messages:
-      DeadLetter:
-        $ref: '#/components/messages/DeadLetter'
-    bindings:
-      kafka:
-        topic: evt.pay.rtp.dlq.v1
-        partitions: 3
-        replicas: 3
-        topicConfiguration:
-          cleanup.policy:
-          - delete
-          retention.ms: 1209600000
           max.message.bytes: 1048576
         bindingVersion: 0.5.0
 operations:
@@ -115,25 +77,25 @@ operations:
     title: Publish Payments.PayRequest.Created.v1
     summary: svc-pay-request-to-pay publishes Payments.PayRequest.Created.v1 through its transactional outbox.
     channel:
-      $ref: '#/channels/created'
+      $ref: '#/channels/rtp'
     messages:
-    - $ref: '#/channels/created/messages/PayRequestCreated'
+    - $ref: '#/channels/rtp/messages/PayRequestCreated'
   publishPayRequestAccepted:
     action: send
     title: Publish Payments.PayRequest.Accepted.v1
     summary: svc-pay-request-to-pay publishes Payments.PayRequest.Accepted.v1 through its transactional outbox.
     channel:
-      $ref: '#/channels/accepted'
+      $ref: '#/channels/rtp'
     messages:
-    - $ref: '#/channels/accepted/messages/PayRequestAccepted'
+    - $ref: '#/channels/rtp/messages/PayRequestAccepted'
   publishPayRequestRejected:
     action: send
     title: Publish Payments.PayRequest.Rejected.v1
     summary: svc-pay-request-to-pay publishes Payments.PayRequest.Rejected.v1 through its transactional outbox.
     channel:
-      $ref: '#/channels/rejected'
+      $ref: '#/channels/rtp'
     messages:
-    - $ref: '#/channels/rejected/messages/PayRequestRejected'
+    - $ref: '#/channels/rtp/messages/PayRequestRejected'
 components:
   schemas:
     EventEnvelope:
@@ -210,7 +172,12 @@ components:
       summary: A request to pay was created for the debtor.
       contentType: application/json
       headers:
-        $ref: '#/components/schemas/EventHeaders'
+        allOf:
+        - $ref: '#/components/schemas/EventHeaders'
+        - type: object
+          properties:
+            eventType:
+              const: Payments.PayRequest.Created.v1
       payload:
         allOf:
         - $ref: '#/components/schemas/EventEnvelope'
@@ -235,7 +202,12 @@ components:
       summary: The debtor accepted the request and a payment was created (request status CONSUMED).
       contentType: application/json
       headers:
-        $ref: '#/components/schemas/EventHeaders'
+        allOf:
+        - $ref: '#/components/schemas/EventHeaders'
+        - type: object
+          properties:
+            eventType:
+              const: Payments.PayRequest.Accepted.v1
       payload:
         allOf:
         - $ref: '#/components/schemas/EventEnvelope'
@@ -260,7 +232,12 @@ components:
       summary: The debtor rejected the request.
       contentType: application/json
       headers:
-        $ref: '#/components/schemas/EventHeaders'
+        allOf:
+        - $ref: '#/components/schemas/EventHeaders'
+        - type: object
+          properties:
+            eventType:
+              const: Payments.PayRequest.Rejected.v1
       payload:
         allOf:
         - $ref: '#/components/schemas/EventEnvelope'
@@ -295,6 +272,12 @@ components:
             description: Original record key (aggregateId).
           bindingVersion: 0.5.0
   securitySchemes:
+    mskIam:
+      type: userPassword
+      description: SASL_SSL with SASL mechanism AWS_MSK_IAM. There is no user or password; the client signs with the AWS
+        credentials of its IRSA role, and a topic-scoped IAM policy (terraform module msk-client-access) grants produce
+        or consume rights. AsyncAPI has no IAM scheme type, so userPassword stands for the SASL family.
+      x-sasl-mechanism: AWS_MSK_IAM
     mtls:
       type: X509
-      description: Mutual TLS with platform-issued client certificates.
+      description: Mutual TLS with Strimzi-issued client certificates (local and non-AWS clusters only).
