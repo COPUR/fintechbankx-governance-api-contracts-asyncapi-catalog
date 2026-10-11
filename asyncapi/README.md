@@ -62,7 +62,7 @@ plus "expected" entries (`file: null`) for services that will publish but have n
 | `channels` | Full topic addresses declared by the spec, dead-letter topic included |
 | `providerSpecPath` | Path of the AsyncAPI file in the provider repository (for example `api/asyncapi/<service-id>.yaml`), set as soon as the provider carries the file, on its default branch or on the branch named in `pendingImplementation`; `null` only while the provider has none |
 | `implementationStatus` | `contract-only`, `publishes-legacy`, `outbox` or `no-contract` (see `statusValues` in the file) |
-| `pendingImplementation` | Unmerged provider branch the catalog copy comes from, if any; `pullRequest` names the provider PR it waits on and `note` the mirrored provider commit |
+| `pendingImplementation` | Unmerged provider branch the catalog copy comes from, if any; `pullRequest` names the provider PR it waits on, written `COPUR/<repository>#<number>`, and `note` the mirrored provider commit |
 
 Status today (Proposed):
 
