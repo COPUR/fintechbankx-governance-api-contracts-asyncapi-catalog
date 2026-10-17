@@ -13,7 +13,9 @@ record key is `aggregateId`. Naming follows
 | [svc-ln-loan-lifecycle.yaml](svc-ln-loan-lifecycle.yaml) | Loan lifecycle | `evt.ln.loan.v1` | `Lending.Loan.*.v1`: Created, Approved, Rejected, Disbursed, Cancelled, PaymentMade, FullyPaid | Domain events raised; no publisher adapter |
 | [svc-pay-initiation-settlement.yaml](svc-pay-initiation-settlement.yaml) | Payment initiation and settlement | `evt.pay.payment.v1` | nine payment and loan-payment event types (see the spec) | Domain events raised; no publisher adapter |
 | [svc-pay-request-to-pay.yaml](svc-pay-request-to-pay.yaml) | Request to pay | `evt.pay.rtp.v1` | `Payments.PayRequest.*.v1`: Created, Accepted, Rejected | Published to legacy `rtp.pay_requests.v1` without envelope |
-| [svc-cus-profile-kyc.yaml](svc-cus-profile-kyc.yaml) | Customer profile and KYC | `evt.cus.customer.v1` | seven customer event types (see the spec) | Published after save via an external `DomainEventPublisher`; no outbox |
+| [svc-cus-profile-kyc.yaml](svc-cus-profile-kyc.yaml) | Customer profile and KYC | `evt.cus.customer.v1` | seven customer event types (see the spec) | Transactional outbox and relay on unmerged provider branch `claude/customer-risk-compliance-deployable-ygi0zo` |
+| [svc-rsk-decisioning.yaml](svc-rsk-decisioning.yaml) | Risk decisioning | `evt.rsk.risk.v1` | `Risk.RiskAssessment.Assessed.v1` | Transactional outbox and relay on unmerged provider branch `claude/customer-risk-compliance-deployable-ygi0zo` |
+| [svc-cmp-evidence.yaml](svc-cmp-evidence.yaml) | Compliance evidence | `evt.cmp.compliance.v1` | `Compliance.ComplianceScreening.Screened.v1` | Transactional outbox and relay on unmerged provider branch `claude/customer-risk-compliance-deployable-ygi0zo` |
 
 One topic per aggregate (ADR-019, owner decision 2026-10-08): every event of a namespace's aggregate goes to
 `<namespace>.v<N>`, keyed by the aggregate id, so one aggregate instance's events stay in order in one partition.
@@ -35,7 +37,7 @@ rejects a send channel outside it. Topics are provisioned by `scripts/kafka/crea
 `fintechbankx-platform-event-streaming-kafka`.
 
 No other fintechbankx service publishes events in code today (consent, account data, payee, metadata, open data,
-risk, compliance, bulk and recurring payments). Risk, compliance, consent, recurring mandates and bulk payments are
+bulk and recurring payments). Consent, recurring mandates and bulk payments are
 expected publishers and are listed in the catalog index without a file. Add a contract here, and update the index
 entry, when the provider adds one.
 
@@ -60,15 +62,15 @@ Status today (Proposed):
 |---|---|---|---|
 | `svc-ln-loan-lifecycle` | `evt.ln.loan` | `contract-only` | outbox and relay on unmerged provider branch `claude/project-thread-ty79y4` |
 | `svc-pay-initiation-settlement` | `evt.pay.payment` | `contract-only` | outbox and relay on unmerged provider branch `claude/project-thread-ty79y4` |
-| `svc-cus-profile-kyc` | `evt.cus.customer` | `contract-only` | outbox and relay on unmerged provider branch `claude/project-thread-ty79y4` |
+| `svc-cus-profile-kyc` | `evt.cus.customer` | `contract-only` | outbox and relay on unmerged provider branch `claude/customer-risk-compliance-deployable-ygi0zo` (provider PR #13) |
 | `svc-pay-request-to-pay` | `evt.pay.rtp` | `publishes-legacy` | legacy topic `rtp.pay_requests.v1`, no envelope |
-| `svc-rsk-decisioning` | `evt.rsk.risk` | `no-contract` | expected |
-| `svc-cmp-evidence` | `evt.cmp.compliance` | `no-contract` | expected |
+| `svc-rsk-decisioning` | `evt.rsk.risk` | `contract-only` | outbox and relay on unmerged provider branch `claude/customer-risk-compliance-deployable-ygi0zo` (provider PR #13) |
+| `svc-cmp-evidence` | `evt.cmp.compliance` | `contract-only` | outbox and relay on unmerged provider branch `claude/customer-risk-compliance-deployable-ygi0zo` (provider PR #13) |
 | `svc-of-consent-authorization` | `evt.of.consent` | `no-contract` | expected |
 | `svc-pay-recurring-mandates` | `evt.pay.mandate` | `no-contract` | expected |
 | `svc-pay-bulk-orchestration` | `evt.pay.bulk` | `no-contract` | expected |
 
-In this PR every `providerSpecPath` is still `null`; the stacked catalog PRs (#11 to #13) set it for the providers whose repositories now carry their own spec. A catalog PR that points `providerSpecPath` at an unmerged provider branch names that branch in `pendingImplementation` and merges only after the provider PR, so on the catalog's default branch the path always resolves on the provider's default branch.
+Customer, risk and compliance carry `api/asyncapi/<service-id>.yaml` on the provider branch named in `pendingImplementation`, so their `providerSpecPath` is set; the other entries stay `null` until their provider carries its own spec. A catalog PR that points `providerSpecPath` at an unmerged provider branch names that branch in `pendingImplementation` and merges only after the provider PR, so on the catalog's default branch the path always resolves on the provider's default branch. This PR therefore merges after customer, risk and compliance PR #13.
 
 ## Checks
 

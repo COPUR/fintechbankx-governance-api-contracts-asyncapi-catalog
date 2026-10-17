@@ -18,15 +18,16 @@
       "implementationStatus": "contract-only",
       "implementationNote": "Customer aggregate events are passed to DomainEventPublisher.publishAll after save; no publisher implementation or outbox in the repository default branch, so nothing reaches Kafka from it.",
       "pendingImplementation": {
-        "branch": "claude/project-thread-ty79y4",
+        "branch": "claude/customer-risk-compliance-deployable-ygi0zo",
         "repo": "COPUR/fintechbankx-customer-profile-kyc-core",
+        "pullRequest": "COPUR/fintechbankx-customer-profile-kyc-core#13",
         "status": "outbox",
-        "note": "Transactional outbox, envelope factory and relay on an unmerged branch; status changes to outbox when the provider merges it."
+        "note": "Transactional outbox, envelope factory and relay publishing the Customer.Customer.* events on evt.cus.customer.v1, with the provider spec api/asyncapi/svc-cus-profile-kyc.yaml, on an unmerged branch (provider PR #13); status changes to outbox when the provider merges it. The catalog copy mirrors provider commit 3e8afcd (the last commit changing the spec on the provider branch)."
       },
       "channels": [
         "evt.cus.customer.v1"
       ],
-      "providerSpecPath": null
+      "providerSpecPath": "api/asyncapi/svc-cus-profile-kyc.yaml"
     },
     {
       "file": "asyncapi/svc-ln-loan-lifecycle.yaml",
@@ -84,30 +85,46 @@
       "providerSpecPath": null
     },
     {
-      "file": null,
+      "file": "asyncapi/svc-rsk-decisioning.yaml",
       "serviceId": "svc-rsk-decisioning",
       "ownerRepo": "COPUR/fintechbankx-riskcompliance-risk-decisioning-core",
       "canonicalRepo": "fintechbankx-risk-decisioning-service",
       "owningSquad": "Risk and Compliance Decisioning Squad",
       "namespace": "evt.rsk.risk",
-      "channels": [],
-      "providerSpecPath": null,
-      "implementationStatus": "no-contract",
-      "implementationNote": "Expected publisher; no event publishing code and no AsyncAPI contract in the provider repository yet. Add the contract in the provider repository first, then mirror it here.",
-      "pendingImplementation": null
+      "implementationStatus": "contract-only",
+      "implementationNote": "No event publishing code on the provider default branch; nothing reaches Kafka from it.",
+      "pendingImplementation": {
+        "branch": "claude/customer-risk-compliance-deployable-ygi0zo",
+        "repo": "COPUR/fintechbankx-riskcompliance-risk-decisioning-core",
+        "pullRequest": "COPUR/fintechbankx-riskcompliance-risk-decisioning-core#13",
+        "status": "outbox",
+        "note": "Transactional outbox, envelope factory and relay publishing Risk.RiskAssessment.Assessed.v1 on evt.rsk.risk.v1, with the provider-owned contract api/asyncapi/svc-rsk-decisioning.yaml, on an unmerged branch (provider PR #13); status changes to outbox when the provider merges it. The catalog copy mirrors provider commit ea0c09e (the last commit changing the spec on the provider branch)."
+      },
+      "channels": [
+        "evt.rsk.risk.v1"
+      ],
+      "providerSpecPath": "api/asyncapi/svc-rsk-decisioning.yaml"
     },
     {
-      "file": null,
+      "file": "asyncapi/svc-cmp-evidence.yaml",
       "serviceId": "svc-cmp-evidence",
       "ownerRepo": "COPUR/fintechbankx-riskcompliance-compliance-evidence-core",
       "canonicalRepo": "fintechbankx-compliance-evidence-service",
       "owningSquad": "Risk and Compliance Decisioning Squad",
       "namespace": "evt.cmp.compliance",
-      "channels": [],
-      "providerSpecPath": null,
-      "implementationStatus": "no-contract",
-      "implementationNote": "Expected publisher; no event publishing code and no AsyncAPI contract in the provider repository yet. Add the contract in the provider repository first, then mirror it here.",
-      "pendingImplementation": null
+      "implementationStatus": "contract-only",
+      "implementationNote": "No event publishing code or contract on the provider default branch, so nothing reaches Kafka from it.",
+      "pendingImplementation": {
+        "branch": "claude/customer-risk-compliance-deployable-ygi0zo",
+        "repo": "COPUR/fintechbankx-riskcompliance-compliance-evidence-core",
+        "pullRequest": "COPUR/fintechbankx-riskcompliance-compliance-evidence-core#13",
+        "status": "outbox",
+        "note": "Transactional outbox, envelope factory and relay (Compliance.ComplianceScreening.Screened.v1 on evt.cmp.compliance.v1) and the provider spec api/asyncapi/svc-cmp-evidence.yaml on an unmerged branch (provider PR #13); status changes to outbox when the provider merges it. The catalog copy mirrors provider commit 049aae0 (the last commit changing the spec on the provider branch)."
+      },
+      "channels": [
+        "evt.cmp.compliance.v1"
+      ],
+      "providerSpecPath": "api/asyncapi/svc-cmp-evidence.yaml"
     },
     {
       "file": null,
