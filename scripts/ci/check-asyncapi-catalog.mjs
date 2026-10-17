@@ -19,7 +19,10 @@
 //   - a message payload does not use the common envelope ($ref to common/event-envelope.yaml#/EventEnvelope);
 //     a dead-letter channel (*.dlq.vN) is exempt, since it keeps the poison record unchanged, but its messages
 //     must declare the common DeadLetterHeaders as headers;
-//   - the same topic address is published by two specs.
+//   - the same topic address is published by two specs;
+//   - a pendingImplementation names a repo other than the entry's ownerRepo, or an entry whose providerSpecPath
+//     is set on that unmerged branch has no pendingImplementation.pullRequest written COPUR/<repository>#<number>
+//     naming ownerRepo.
 // Consumed channels (every operation on the channel is `receive`) may sit in another namespace. They must be
 // listed in the entry's optional `consumes` array, are not counted as published, and when the owning
 // namespace has a spec in the catalog that spec must publish the topic. Another namespace's dead-letter topic
@@ -74,6 +77,9 @@ export function checkCatalog(root) {
     if (!Array.isArray(e?.channels)) err(`${where}: channels must be an array`);
     if (e?.consumes !== undefined && !Array.isArray(e.consumes)) err(`${where}: consumes must be an array when present`);
     if (!(e?.providerSpecPath === null || typeof e?.providerSpecPath === 'string')) err(`${where}: providerSpecPath must be a string or null`);
+    if (e?.pendingImplementation && e.pendingImplementation.repo !== undefined && e.pendingImplementation.repo !== e?.ownerRepo) {
+      err(`${where}: pendingImplementation.repo must equal ownerRepo`);
+    }
     if (typeof e?.providerSpecPath === 'string' && e?.pendingImplementation) {
       const pr = e.pendingImplementation.pullRequest;
       const m = typeof pr === 'string' ? /^(COPUR\/fintechbankx-[a-z0-9-]+)#[1-9][0-9]*$/.exec(pr) : null;

@@ -110,30 +110,118 @@
       "pendingImplementation": null
     },
     {
-      "file": null,
+      "file": "asyncapi/svc-of-consent-authorization.yaml",
       "serviceId": "svc-of-consent-authorization",
       "ownerRepo": "COPUR/fintechbankx-openfinance-consent-auth-service",
       "canonicalRepo": "fintechbankx-openfinance-consent-authorization-service",
       "owningSquad": "Consent and Authorization Squad",
       "namespace": "evt.of.consent",
-      "channels": [],
-      "providerSpecPath": null,
-      "implementationStatus": "no-contract",
-      "implementationNote": "Expected publisher; no event publishing code and no AsyncAPI contract in the provider repository yet. Add the contract in the provider repository first, then mirror it here. Open finance pillar plans evt.of.consent.created/authorized/revoked/expired.v1 (optional accountIds in data); personal-financial-data, business-financial-data and banking-metadata consume them.",
-      "pendingImplementation": null
+      "channels": [
+        "evt.of.consent.v1"
+      ],
+      "providerSpecPath": "api/asyncapi/svc-of-consent-authorization.yaml",
+      "implementationStatus": "contract-only",
+      "implementationNote": "Consent facts (Created, Authorized, Revoked, Expired) on the one aggregate topic evt.of.consent.v1. Consumed by svc-of-personal-financial-data, svc-of-business-financial-data and svc-of-banking-metadata (consent projections; consumer specs are mirrored here and name this topic). The provider default branch publishes nothing yet.",
+      "pendingImplementation": {
+        "branch": "claude/openfinance-deployable-ra36dq",
+        "repo": "COPUR/fintechbankx-openfinance-consent-auth-service",
+        "pullRequest": "COPUR/fintechbankx-openfinance-consent-auth-service#13",
+        "status": "outbox",
+        "note": "Transactional outbox, envelope mapping, relay and the provider copy api/asyncapi/svc-of-consent-authorization.yaml on an unmerged branch (catalog copy mirrors commit f6652ee); status changes to outbox when the provider merges it."
+      }
     },
     {
-      "file": null,
+      "file": "asyncapi/svc-of-payee-verification.yaml",
       "serviceId": "svc-of-payee-verification",
       "ownerRepo": "COPUR/fintechbankx-openfinance-payee-metadata-payee-verification",
       "canonicalRepo": "fintechbankx-openfinance-payee-verification-service",
       "owningSquad": "Payee and Metadata Squad",
       "namespace": "evt.of.payee",
-      "channels": [],
-      "providerSpecPath": null,
-      "implementationStatus": "no-contract",
-      "implementationNote": "Open finance pillar plans event type OpenFinance.PayeeVerification.Completed.v1 on evt.of.payee.v1 (2026-10-08). No contract yet.",
-      "pendingImplementation": null
+      "channels": [
+        "evt.of.payee.v1"
+      ],
+      "providerSpecPath": "api/asyncapi/svc-of-payee-verification.yaml",
+      "implementationStatus": "contract-only",
+      "implementationNote": "The provider default branch matches against a seeded in-memory directory and publishes nothing.",
+      "pendingImplementation": {
+        "branch": "claude/openfinance-deployable-ra36dq",
+        "repo": "COPUR/fintechbankx-openfinance-payee-metadata-payee-verification",
+        "pullRequest": "COPUR/fintechbankx-openfinance-payee-metadata-payee-verification#13",
+        "status": "outbox",
+        "note": "PostgreSQL decision record, transactional outbox, relay and the provider copy api/asyncapi/svc-of-payee-verification.yaml on an unmerged branch (catalog copy mirrors commit c621293); status changes to outbox when the provider merges it."
+      }
+    },
+    {
+      "file": "asyncapi/svc-of-personal-financial-data.yaml",
+      "serviceId": "svc-of-personal-financial-data",
+      "ownerRepo": "COPUR/fintechbankx-openfinance-retail-data-personal-financial",
+      "canonicalRepo": "fintechbankx-openfinance-personal-financial-data-service",
+      "owningSquad": "Retail Financial Data Squad",
+      "namespace": "evt.of.account",
+      "implementationStatus": "contract-only",
+      "implementationNote": "Publishes no domain events: consumes the consent aggregate topic evt.of.consent.v1 into a consent read model and dead-letters to its own evt.of.account.dlq.v1 (consumer-owned DLQs, ADR-019). The provider default branch has no AsyncAPI file.",
+      "pendingImplementation": {
+        "branch": "claude/openfinance-deployable-ra36dq",
+        "repo": "COPUR/fintechbankx-openfinance-retail-data-personal-financial",
+        "pullRequest": "COPUR/fintechbankx-openfinance-retail-data-personal-financial#14",
+        "status": "contract-only",
+        "note": "Consent projection consumer and the provider copy api/asyncapi/svc-of-personal-financial-data.yaml on an unmerged branch (catalog copy mirrors commit 3182fa8); the service still publishes nothing, so the status stays contract-only after it merges."
+      },
+      "channels": [
+        "evt.of.account.dlq.v1"
+      ],
+      "consumes": [
+        "evt.of.consent.v1"
+      ],
+      "providerSpecPath": "api/asyncapi/svc-of-personal-financial-data.yaml"
+    },
+    {
+      "file": "asyncapi/svc-of-banking-metadata.yaml",
+      "serviceId": "svc-of-banking-metadata",
+      "ownerRepo": "COPUR/fintechbankx-openfinance-payee-metadata-banking-metadata",
+      "canonicalRepo": "fintechbankx-openfinance-banking-metadata-service",
+      "owningSquad": "Payee and Metadata Squad",
+      "namespace": "evt.of.metadata",
+      "implementationStatus": "contract-only",
+      "implementationNote": "Publishes no domain events: consumes the consent aggregate topic evt.of.consent.v1 into a consent read model and dead-letters to its own evt.of.metadata.dlq.v1 (consumer-owned DLQs, ADR-019). The provider default branch has no AsyncAPI file.",
+      "pendingImplementation": {
+        "branch": "claude/openfinance-deployable-ra36dq",
+        "repo": "COPUR/fintechbankx-openfinance-payee-metadata-banking-metadata",
+        "pullRequest": "COPUR/fintechbankx-openfinance-payee-metadata-banking-metadata#14",
+        "status": "contract-only",
+        "note": "Consent projection consumer and the provider copy api/asyncapi/svc-of-banking-metadata.yaml on an unmerged branch (catalog copy mirrors commit 23b3921); the service still publishes nothing, so the status stays contract-only after it merges."
+      },
+      "channels": [
+        "evt.of.metadata.dlq.v1"
+      ],
+      "consumes": [
+        "evt.of.consent.v1"
+      ],
+      "providerSpecPath": "api/asyncapi/svc-of-banking-metadata.yaml"
+    },
+    {
+      "file": "asyncapi/svc-of-business-financial-data.yaml",
+      "serviceId": "svc-of-business-financial-data",
+      "ownerRepo": "COPUR/fintechbankx-openfinance-corporate-data-business-financial",
+      "canonicalRepo": "fintechbankx-openfinance-business-financial-data-service",
+      "owningSquad": "Corporate Financial Data Squad",
+      "namespace": "evt.of.corporate",
+      "implementationStatus": "contract-only",
+      "implementationNote": "Publishes no domain events: consumes the consent aggregate topic evt.of.consent.v1 into a consent read model and dead-letters to its own evt.of.corporate.dlq.v1 (consumer-owned DLQs, ADR-019). The provider default branch has no AsyncAPI file.",
+      "pendingImplementation": {
+        "branch": "claude/openfinance-deployable-ra36dq",
+        "repo": "COPUR/fintechbankx-openfinance-corporate-data-business-financial",
+        "pullRequest": "COPUR/fintechbankx-openfinance-corporate-data-business-financial#14",
+        "status": "contract-only",
+        "note": "Consent projection consumer and the provider copy api/asyncapi/svc-of-business-financial-data.yaml on an unmerged branch (catalog copy mirrors commit e360ac7); the service still publishes nothing, so the status stays contract-only after it merges."
+      },
+      "channels": [
+        "evt.of.corporate.dlq.v1"
+      ],
+      "consumes": [
+        "evt.of.consent.v1"
+      ],
+      "providerSpecPath": "api/asyncapi/svc-of-business-financial-data.yaml"
     },
     {
       "file": null,
