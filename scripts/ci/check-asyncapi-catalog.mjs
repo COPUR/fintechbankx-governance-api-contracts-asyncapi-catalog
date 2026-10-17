@@ -74,6 +74,11 @@ export function checkCatalog(root) {
     if (!Array.isArray(e?.channels)) err(`${where}: channels must be an array`);
     if (e?.consumes !== undefined && !Array.isArray(e.consumes)) err(`${where}: consumes must be an array when present`);
     if (!(e?.providerSpecPath === null || typeof e?.providerSpecPath === 'string')) err(`${where}: providerSpecPath must be a string or null`);
+    if (typeof e?.providerSpecPath === 'string' && e?.pendingImplementation) {
+      const pr = e.pendingImplementation.pullRequest;
+      const m = typeof pr === 'string' ? /^(COPUR\/fintechbankx-[a-z0-9-]+)#[1-9][0-9]*$/.exec(pr) : null;
+      if (!m || m[1] !== e?.ownerRepo) err(`${where}: pendingImplementation.pullRequest must be written COPUR/<repository>#<number> and name ownerRepo`);
+    }
     if (e?.file === null) {
       if (e?.implementationStatus !== 'no-contract') err(`${where}: entries without a file must have implementationStatus "no-contract"`);
       if (Array.isArray(e?.channels) && e.channels.length > 0) err(`${where}: entries without a file must not list channels`);

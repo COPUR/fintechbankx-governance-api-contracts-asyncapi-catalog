@@ -193,3 +193,20 @@ test('fails when the payload does not fix its eventType', () => {
   delete doc.components.messages.SampleCreated.payload.allOf[1].properties.eventType;
   expectError({ specs: { 'svc-tst-sample.yaml': doc } }, /payload must fix eventType with a const/);
 });
+
+test('a pending provider spec names its provider PR as COPUR/<repository>#<number>', () => {
+  const pending = { branch: 'claude/x', pullRequest: 'COPUR/fintechbankx-test-sample#7', note: 'mirrors commit abc1234' };
+  assert.deepEqual(errorsOf({ services: [entry({ providerSpecPath: 'api/asyncapi/svc-tst-sample.yaml', pendingImplementation: pending })] }), []);
+});
+
+test('fails when a pending provider spec has no pullRequest', () => {
+  const pending = { branch: 'claude/x', note: 'mirrors commit abc1234' };
+  expectError({ services: [entry({ providerSpecPath: 'api/asyncapi/svc-tst-sample.yaml', pendingImplementation: pending })] }, /pullRequest must be written COPUR\/<repository>#<number>/);
+});
+
+test('fails when pullRequest is a URL or names another repository', () => {
+  for (const pullRequest of ['https://github.com/COPUR/fintechbankx-test-sample/pull/7', 'COPUR/fintechbankx-test-other#7', 'COPUR/fintechbankx-test-sample#0']) {
+    const pending = { branch: 'claude/x', pullRequest };
+    expectError({ services: [entry({ providerSpecPath: 'api/asyncapi/svc-tst-sample.yaml', pendingImplementation: pending })] }, /pullRequest must be written COPUR\/<repository>#<number>/);
+  }
+});
