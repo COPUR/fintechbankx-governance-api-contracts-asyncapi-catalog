@@ -91,12 +91,12 @@ jobs:
           esac
 
           # A password value is tested from its key to the end of its line, and the placeholder test is anchored to that match.
-          # The value must be a placeholder all the way to a closing quote or backtick, an end of statement or a trailing comment:
+          # The value must be a placeholder all the way to a closing quote or backtick, or an end of statement. A trailing comment is not allowed:
           # an empty value, <name>, ${NAME}, ${NAME:}, ${NAME:-}, ${NAME:?message}, a nested ${...} default, var.name, env.NAME,
-          # env(NAME), System.getenv(NAME), x.getPassword(), resource.name.attr, a Helm action or a whole boolean (true or false).
+          # env(NAME), System.getenv(NAME), x.getPassword(), resource.name.attr, a Helm action, a GitHub secrets reference or a whole boolean (true or false).
           # Anything else is reported: a literal default such as ${NAME:-value}, a literal after an operator, and a key whose
           # name ends in password, quoted or not (DB_PASSWORD, dbPassword, PGPASSWORD, "password").
-          PLACEHOLDER='^\./[^:]*:[0-9]+:[A-Za-z0-9_.-]*password[\x22\x27\x60]?\s*[:=]\s*[\x22\x27\x60]?((<[A-Za-z0-9_. -]+>|\$\{[A-Za-z_][A-Za-z0-9_.-]*(:(\$\{[A-Za-z0-9_.:-]*\})?|:-)?\}|\$\{[A-Za-z_][A-Za-z0-9_.-]*:\?[^}]*\}|-\}|var\.[A-Za-z_][A-Za-z0-9_]*|(?-i:env\.[A-Z][A-Z0-9_]*)|env\([^,)]*\)|[A-Za-z_.]*[Gg]etenv\([^,)]*\)|[A-Za-z_][A-Za-z0-9_.]*\.[Gg]et[A-Za-z0-9_]*\(\)|(?-i:[a-z]+(_[a-z0-9]+)+\.[A-Za-z][A-Za-z0-9_-]*\.[a-z_]+)|true|false|\{\{[^}]*\}\})[\x22\x27\x60]?[ \t]*[},;)]*[ \t]*([ \t]+#.*)?|[\x22\x27\x60]?[ \t]*)$'
+          PLACEHOLDER='^\./[^:]*:[0-9]+:[A-Za-z0-9_.-]*password[\x22\x27\x60]?\s*[:=]\s*[\x22\x27\x60]?((<[A-Za-z0-9_. -]+>|\$\{[A-Za-z_][A-Za-z0-9_.-]*(:(\$\{[A-Za-z0-9_.:-]*\})?|:-)?\}|\$\{[A-Za-z_][A-Za-z0-9_.-]*:\?[^}]*\}|-\}|var\.[A-Za-z_][A-Za-z0-9_]*|(?-i:env\.[A-Z][A-Z0-9_]*)|env\([^,)]*\)|[A-Za-z_.]*[Gg]etenv\([^,)]*\)|[A-Za-z_][A-Za-z0-9_.]*\.[Gg]et[A-Za-z0-9_]*\(\)|(?-i:[a-z]+(_[a-z0-9]+)+\.[A-Za-z][A-Za-z0-9_-]*\.[a-z_]+)|true|false|\{\{[^}]*\}\}|\$\{\{\s*secrets\.[A-Za-z_][A-Za-z0-9_]*\s*\}\})[\x22\x27\x60]?[ \t]*[},;)]*[ \t]*|[\x22\x27\x60]?[ \t]*)$'
           status=0
           values=$(rg -i -o -n --hidden '[A-Za-z0-9_.-]*password[\x22\x27\x60]?\s*[:=].*' . "${EXCLUDES[@]}") || status=$?
           case $status in

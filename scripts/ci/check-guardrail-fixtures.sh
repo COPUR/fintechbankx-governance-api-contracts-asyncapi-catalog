@@ -109,6 +109,12 @@ hit_cases=(
   "${PW}: random_${PW}"
   "${SK} = abc"
   "${BG} RSA PRIVATE KEY"
+  "${PW}: <db-${PW}>  # placeholder"
+  "${PW}: \${X:-}  # hunter2"
+  "${PW}: \${{ env.X }}"
+  "${PW}: \${{ secrets.CI_DB_PASSWORD }}hunter2"
+  "${PW}: \${{ secrets.CI_DB_PASSWORD }} + \"abc\""
+  "--DB_MIGRATION_${PW^^}=\" + PostgresTestDatabase.ownerPassword()"
 )
 
 pass_cases=(
@@ -119,7 +125,6 @@ pass_cases=(
   "${PW}: \${DB_MIGRATION_${PW^^}:\${spring.datasource.${PW}:}}"
   "${PW}: var.db_${PW}"
   "${PW}: \"false\""
-  "${PW}: <db-${PW}>  # placeholder"
   "${PW}: true"
   "${PW}:"
   "${PW}: \${X:-}"
@@ -144,6 +149,9 @@ pass_cases=(
   "${PW}: {{ .Values.flyway.${PW} }}"
   "${PW}: {{.Values.db.${PW}}}"
   "SPRING_FLYWAY_${PW^^}:"
+  "${PW}: \${{ secrets.CI_DB_PASSWORD }}"
+  "POSTGRES_${PW^^}: \${{ secrets.CI_DB_PASSWORD }}"
+  "\"${PW}\": \"\${{ secrets.CI_DB_PASSWORD }}\""
   "clean line"
 )
 
