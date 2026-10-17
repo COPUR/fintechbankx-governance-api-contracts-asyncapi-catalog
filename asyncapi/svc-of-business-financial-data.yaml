@@ -196,6 +196,16 @@ components:
           - string
           - 'null'
           format: date-time
+        fullBalancesGranted:
+          type:
+          - boolean
+          - 'null'
+          description: >-
+            Optional. True only when the corporate customer explicitly allowed full balance amounts when
+            authorizing the consent; the producer rejects true unless the consent has the ReadBalances scope.
+            Absent, null or false means not granted. This service shows balance amounts (X-OF-Entitlement FULL)
+            only when the consent has ReadBalances and this is true; otherwise balances are masked
+            (X-OF-Entitlement RESTRICTED). Open-finance decision 4, "explicit grant", 2026-10-17.
   messages:
     ConsentCreated:
       name: ConsentCreated

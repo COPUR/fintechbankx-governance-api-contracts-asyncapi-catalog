@@ -27,7 +27,8 @@ info:
 
     A consent is usable only when status is AUTHORIZED and expiresAt is in the future. accountIds are the accounts the
     customer selected when authorizing, never the participant's request; an empty accountIds list means the consent
-    grants access to no account at all (it does not mean "all accounts").
+    grants access to no account at all (it does not mean "all accounts"). fullBalancesGranted is true only when the
+    customer explicitly allowed full balance amounts when authorizing; absent or false means balances are masked.
 
     Retention: a consent may live at most 90 days from creation (enforced when it is created), and the topic keeps
     records for 90 days with cleanup.policy=delete. A consumer that rebuilds its projection by replaying from the
@@ -169,7 +170,9 @@ components:
       type: object
       description: >-
         Current state of the consent after the change. Ids and facts only: no names, no raw account numbers
-        and no revocation free text. Every key below is always emitted (nullable ones as null), so all are required.
+        and no revocation free text. Every key below is always emitted (nullable ones as null); all are required
+        except fullBalancesGranted, which was added later and is optional so that a consumer treats its absence as
+        false (balances masked).
       additionalProperties: true
       properties:
         consentId:
@@ -220,6 +223,13 @@ components:
             type: string
             minLength: 1
             maxLength: 64
+        fullBalancesGranted:
+          type: boolean
+          default: false
+          description: >-
+            true only when the corporate customer explicitly allowed full balance amounts at authorization; absent
+            or false means balances are masked. The producer always emits it (false on Created); it can be true
+            only for a consent with the READBALANCES scope and never changes once the consent is authorized.
         purpose:
           type: string
           minLength: 1
