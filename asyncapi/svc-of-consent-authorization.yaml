@@ -29,9 +29,12 @@ info:
     customer selected when authorizing, never the participant's request; an empty accountIds list means the consent
     grants access to no account at all (it does not mean "all accounts"). fullBalancesGranted is true only when the
     customer explicitly allowed full balance amounts when authorizing; absent or false means balances are masked.
+    vrpControlParameters (consents with INITIATEVRP) and bulkFileDeclaration (consents with INITIATEBULKPAYMENTS) are
+    the payment controls the participant declared at creation and the customer authorised; a consent has at most one
+    of them, it never changes after creation, and the key is absent (never null) when the consent declared none.
 
-    Retention: a consent may live at most 90 days from creation (enforced when it is created), and the topic keeps
-    records for 90 days with cleanup.policy=delete. A consumer that rebuilds its projection by replaying from the
+    Retention: a consent may live at most 365 days from creation (enforced when it is created), and the topic keeps
+    records for 366 days with cleanup.policy=delete. A consumer that rebuilds its projection by replaying from the
     earliest offset therefore sees the latest event of every consent that can still be in force.
 
     Consumers (x-consumers below; each consumer owns its consumer group and its dead-letter topic, this producer
@@ -126,7 +129,7 @@ channels:
         topicConfiguration:
           cleanup.policy:
           - delete
-          retention.ms: 7776000000
+          retention.ms: 31622400000
           max.message.bytes: 1048576
         bindingVersion: 0.5.0
 operations:
@@ -166,13 +169,24 @@ components:
   schemas:
     EventEnvelope:
       $ref: ./common/event-envelope.yaml#/EventEnvelope
+    Amount:
+      type: string
+      pattern: ^[0-9]{1,15}(\.[0-9]{1,4})?$
+      description: >-
+        Decimal amount as a string, greater than zero, without sign or exponent, at exactly the currency's ISO 4217
+        minor units (AED 2, KWD 3, JPY 0).
+    Currency:
+      type: string
+      pattern: ^[A-Z]{3}$
+      description: ISO 4217 currency code.
     ConsentFactData:
       type: object
       description: >-
         Current state of the consent after the change. Ids and facts only: no names, no raw account numbers
         and no revocation free text. Every key below is always emitted (nullable ones as null); all are required
         except fullBalancesGranted, which was added later and is optional so that a consumer treats its absence as
-        false (balances masked).
+        false (balances masked), and vrpControlParameters and bulkFileDeclaration, which are emitted only when the
+        consent declared them at creation (absent, never null, otherwise).
       additionalProperties: true
       properties:
         consentId:
@@ -230,6 +244,95 @@ components:
             true only when the corporate customer explicitly allowed full balance amounts at authorization; absent
             or false means balances are masked. The producer always emits it (false on Created); it can be true
             only for a consent with the READBALANCES scope and never changes once the consent is authorized.
+        vrpControlParameters:
+          type: object
+          description: >-
+            VRP limits the participant declared when it created the consent and the customer authorised, identical
+            on every event of the consent. Only on consents with the INITIATEVRP scope, never together with
+            bulkFileDeclaration; absent when none were declared (also on every consent migrated from the monolith).
+            Amounts are decimal strings at the currency's ISO 4217 minor units ("500.00" for AED). The mandate
+            service enforces them.
+          required:
+          - maximumIndividualAmount
+          - currency
+          - periodicLimits
+          - validFrom
+          - validTo
+          properties:
+            maximumIndividualAmount:
+              $ref: '#/components/schemas/Amount'
+            currency:
+              $ref: '#/components/schemas/Currency'
+            periodicLimits:
+              type: array
+              minItems: 1
+              maxItems: 6
+              description: >-
+                At most one limit per periodType, in period-length order (Day first); each amount is at least
+                maximumIndividualAmount and in the parameters' currency.
+              items:
+                type: object
+                required:
+                - periodType
+                - periodAlignment
+                - amount
+                properties:
+                  periodType:
+                    type: string
+                    enum:
+                    - Day
+                    - Week
+                    - Fortnight
+                    - Month
+                    - Half-year
+                    - Year
+                  periodAlignment:
+                    type: string
+                    enum:
+                    - Consent
+                    - Calendar
+                    description: 'Consent: periods run from validFrom. Calendar: periods follow calendar boundaries.'
+                  amount:
+                    $ref: '#/components/schemas/Amount'
+            validFrom:
+              type: string
+              format: date-time
+              description: Before validTo; may be before createdAt (no payment runs before the customer authorises).
+            validTo:
+              type: string
+              format: date-time
+              description: Not after expiresAt.
+        bulkFileDeclaration:
+          type: object
+          description: >-
+            The bulk payment file the participant declared when it created the consent and the customer authorised,
+            identical on every event of the consent. Only on consents with the INITIATEBULKPAYMENTS scope, never
+            together with vrpControlParameters; absent when none was declared (also on every consent migrated from
+            the monolith). The bulk service must refuse a file that does not match it.
+          required:
+          - fileHash
+          - fileType
+          - transactionCount
+          - controlSum
+          - currency
+          properties:
+            fileHash:
+              type: string
+              pattern: ^[0-9a-f]{64}$
+              description: SHA-256 digest of the file, 64 lowercase hex characters.
+            fileType:
+              type: string
+              enum:
+              - CSV
+              - JSON
+              - PAIN.001
+            transactionCount:
+              type: integer
+              minimum: 1
+            controlSum:
+              $ref: '#/components/schemas/Amount'
+            currency:
+              $ref: '#/components/schemas/Currency'
         purpose:
           type: string
           minLength: 1
@@ -244,7 +347,7 @@ components:
         expiresAt:
           type: string
           format: date-time
-          description: At most 90 days after createdAt.
+          description: At most 365 days after createdAt (365 periods of 24 hours, not calendar months, so a 12-month consent that spans 29 February is refused).
         createdAt:
           type: string
           format: date-time
