@@ -210,3 +210,8 @@ test('fails when pullRequest is a URL or names another repository', () => {
     expectError({ services: [entry({ providerSpecPath: 'api/asyncapi/svc-tst-sample.yaml', pendingImplementation: pending })] }, /pullRequest must be written COPUR\/<repository>#<number>/);
   }
 });
+
+test('fails when pendingImplementation.repo is not the ownerRepo', () => {
+  const pending = { branch: 'claude/x', repo: 'COPUR/fintechbankx-test-other', pullRequest: 'COPUR/fintechbankx-test-sample#7' };
+  expectError({ services: [entry({ providerSpecPath: 'api/asyncapi/svc-tst-sample.yaml', pendingImplementation: pending })] }, /pendingImplementation\.repo must equal ownerRepo/);
+});
